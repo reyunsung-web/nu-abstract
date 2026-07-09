@@ -3,25 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OBJET STUDIO — 오브젝트 기반 추상 구성 툴</title>
+<title>NU-ABSTRACT — 오브젝트 기반 추상 구성 툴</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#17171b;
-    --panel:#1e1e24;
-    --panel-alt:#25252c;
-    --border:#312f39;
-    --border-soft:#28272f;
-    --ink:#ece8de;
-    --ink-dim:#8f8d99;
-    --ink-faint:#5c5a66;
-    --lime:#c6ff3d;
-    --lime-dim:#8fbf2a;
-    --coral:#ff6a4d;
-    --violet:#a48cff;
+    /* 밝고 세련된 모던(Light) UI */
+    --bg:#f4f4f6;
+    --panel:#ffffff;
+    --panel-alt:#f8f9fa;
+    --border:#e5e5eb;
+    --border-soft:#f0f0f3;
+    --ink:#111111;
+    --ink-dim:#555555;
+    --ink-faint:#888888;
+    
+    --lime:#b2e622;
+    --coral:#ff5555;
+    --violet:#8b5cf6;
     --canvas-bg:#ffffff;
-    --canvas-grid:#dcdcdc;
+    --canvas-grid:#eaeaeb;
+    
     --mono:'IBM Plex Mono', monospace;
     --display:'Space Grotesk', sans-serif;
     --body:'IBM Plex Sans KR', sans-serif;
@@ -40,8 +42,8 @@
   }
   .brand{display:flex;align-items:center;gap:14px;}
   .brand-mark{
-    width:40px;height:40px;border:1.5px solid var(--lime);border-radius:3px;
-    display:flex;align-items:center;justify-content:center;color:var(--lime);
+    width:40px;height:40px;border:1.5px solid var(--ink);border-radius:3px;
+    display:flex;align-items:center;justify-content:center;color:var(--ink);
     font-family:var(--display);font-size:18px;flex-shrink:0;
   }
   .brand h1{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:0.5px;margin:0;}
@@ -49,9 +51,10 @@
   .stat-readout{
     font-family:var(--mono);font-size:12px;color:var(--ink-dim);
     border:1px solid var(--border);padding:7px 12px;border-radius:3px;
+    background:var(--panel);
     letter-spacing:0.5px;white-space:nowrap;
   }
-  .stat-readout .dot{color:var(--lime);}
+  .stat-readout .dot{color:var(--violet);}
 
   /* ---------- layout ---------- */
   .layout{display:grid;grid-template-columns: 1.25fr 1fr 1.05fr;gap:22px;align-items:start;}
@@ -60,10 +63,11 @@
   .panel{
     background:var(--panel);border:1px solid var(--border);border-radius:6px;
     padding:18px;display:flex;flex-direction:column;gap:14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.02);
   }
   .panel-head{display:flex;align-items:center;gap:10px;}
   .panel-index{
-    font-family:var(--mono);font-size:11px;color:#111;background:var(--lime);
+    font-family:var(--mono);font-size:11px;color:#fff;background:var(--ink);
     width:22px;height:22px;border-radius:3px;display:flex;align-items:center;justify-content:center;
     flex-shrink:0;font-weight:500;
   }
@@ -75,10 +79,10 @@
     border:1px solid var(--border);padding:2px 8px;border-radius:10px;
   }
 
-  /* ---------- canvas frames ---------- */
+  /* ---------- canvas frames & Trace Image ---------- */
   .canvas-frame{
     position:relative;width:100%;aspect-ratio:1/1;border:1px solid var(--border-soft);
-    border-radius:4px;overflow:hidden;
+    border-radius:4px;overflow:hidden; background:var(--canvas-bg);
   }
   .paper-bg{
     position:absolute;inset:0;background:var(--canvas-bg);
@@ -86,6 +90,10 @@
       linear-gradient(var(--canvas-grid) 1px, transparent 1px),
       linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
     background-size:30px 30px;
+  }
+  #traceImage {
+    position:absolute; inset:0; width:100%; height:100%; 
+    object-fit:contain; pointer-events:none; display:none; opacity:0.3;
   }
   canvas{display:block;}
   #drawCanvas{
@@ -104,8 +112,15 @@
     z-index:10;
   }
 
-  .comp-frame{background:#0f0f12; position:relative;}
+  .comp-frame{background:#f8f9fa; position:relative; border-color:var(--border);}
   #compCanvas{width:100%; height:100%; cursor:default;}
+
+  /* ---------- trace tools (New) ---------- */
+  .trace-tools {
+    display:flex; gap:8px; align-items:center; background:var(--panel-alt);
+    padding:8px 12px; border-radius:4px; border:1px dashed var(--border);
+  }
+  .trace-tools span { font-family:var(--mono); font-size:11px; color:var(--ink-dim); white-space:nowrap; }
 
   /* ---------- tool select ---------- */
   .tool-select{display:flex;gap:6px;align-items:center;}
@@ -113,9 +128,10 @@
     flex:1;padding:9px 4px;font-family:var(--mono);font-size:11px;
     border:1px solid var(--border);background:var(--panel-alt);color:var(--ink-dim);
     border-radius:4px;cursor:pointer;text-align:center;letter-spacing:0.2px;
+    transition: all 0.2s;
   }
-  .tool-btn:hover{color:var(--ink);}
-  .tool-btn.active{background:var(--ink);color:#111;border-color:var(--ink);font-weight:500;}
+  .tool-btn:hover{color:var(--ink); border-color:var(--ink-dim);}
+  .tool-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:500;}
   .tool-clear-btn{
     background:var(--panel-alt);
     color:var(--coral);
@@ -123,7 +139,7 @@
     font-weight:600;
   }
   .tool-clear-btn:hover{
-    background:rgba(255,106,77,0.1);
+    background:rgba(255,85,85,0.05);
     border-color:var(--coral);
   }
 
@@ -133,8 +149,8 @@
     display:flex;align-items:center;gap:7px;cursor:pointer;padding:6px 9px;
     border:1px solid var(--border);border-radius:4px;background:var(--panel-alt);flex:1;min-width:120px;
   }
-  .color-target.active{border-color:var(--lime);}
-  .color-target .swatch-preview{width:20px;height:20px;border-radius:3px;border:1px solid rgba(255,255,255,0.18);flex-shrink:0;}
+  .color-target.active{border-color:var(--violet);}
+  .color-target .swatch-preview{width:20px;height:20px;border-radius:3px;border:1px solid rgba(0,0,0,0.1);flex-shrink:0;}
   .color-target span{font-family:var(--mono);font-size:11px;color:var(--ink-dim);}
   .color-target.active span{color:var(--ink);}
 
@@ -143,7 +159,7 @@
     width:38px;height:38px;border:1px solid var(--border);border-radius:4px;
     background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;
   }
-  #brushPreviewDot{border-radius:50%;background:#1b1b1f;}
+  #brushPreviewDot{border-radius:50%;background:#111;}
 
   /* ---------- 12 primary colors palette ---------- */
   .palette-wrap{display:flex;flex-direction:column;gap:6px;}
@@ -155,10 +171,10 @@
   }
   .palette-cell{
     aspect-ratio:1/1;border-radius:3px;cursor:pointer;
-    border:1px solid rgba(0,0,0,0.2);position:relative;
+    border:1px solid rgba(0,0,0,0.1);position:relative;
   }
   .palette-cell:hover{outline:1.5px solid var(--ink);outline-offset:1px;z-index:2;}
-  .palette-cell.selected{outline:1.5px solid var(--lime);outline-offset:1px;z-index:2;}
+  .palette-cell.selected{outline:1.5px solid var(--violet);outline-offset:1px;z-index:2;}
   .palette-custom{
     display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--ink-dim);
   }
@@ -167,37 +183,38 @@
   }
 
   .range-row{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--ink-dim);flex:1;min-width:120px;}
-  input[type=range]{flex:1;accent-color:var(--lime);}
+  input[type=range]{flex:1;accent-color:var(--ink);}
   .val{min-width:40px;text-align:right;color:var(--ink);}
 
   .btn{
     font-family:var(--mono);font-size:12px;padding:9px 14px;border-radius:4px;border:1px solid var(--border);
     background:var(--panel-alt);color:var(--ink);cursor:pointer;letter-spacing:0.3px;
-    transition:background 0.15s, border-color 0.15s, transform 0.1s;
+    transition:background 0.15s, border-color 0.15s, transform 0.1s, color 0.15s;
   }
-  .btn:hover{border-color:var(--ink-dim);}
+  .btn:hover{border-color:var(--ink); background:var(--ink); color:#fff;}
   .btn:active{transform:scale(0.98);}
-  .btn-accent{background:var(--lime);color:#111;border-color:var(--lime);font-weight:500;}
-  .btn-accent:hover{background:var(--lime-dim);}
-  .btn-violet{background:var(--violet);color:#161320;border-color:var(--violet);font-weight:500;}
+  .btn-accent{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:500;}
+  .btn-accent:hover{background:#333;border-color:#333;}
+  .btn-violet{background:var(--violet);color:#fff;border-color:var(--violet);font-weight:500;}
   .btn-coral{background:transparent;color:var(--coral);border-color:var(--coral);}
-  .btn-coral:hover{background:rgba(255,106,77,0.1);}
+  .btn-coral:hover{background:rgba(255,85,85,0.05); color:var(--coral);}
   .btn-ghost{background:transparent;}
+  .btn-ghost:hover{background:var(--panel-alt); border-color:var(--border); color:var(--ink);}
   .btn-full{width:100%;}
   .btn-sm{padding:5px 9px;font-size:11px;}
 
   .checkbox-row{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);}
-  .checkbox-row input{accent-color:var(--lime);}
+  .checkbox-row input{accent-color:var(--ink);}
   .hint-note{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);line-height:1.5;}
 
   /* ---------- editors ---------- */
   .stroke-editor, .comp-item-editor{
     border-top:1px solid var(--violet);padding-top:14px;display:flex;flex-direction:column;gap:10px;
-    background:rgba(164,140,255,0.06);border-radius:4px;padding:12px;border:1px solid var(--violet);
+    background:rgba(139,92,246,0.03);border-radius:4px;padding:12px;border:1px solid var(--violet);
   }
   .comp-item-editor{
     border-color:var(--coral);
-    background:rgba(255,106,77,0.06);
+    background:rgba(255,85,85,0.03);
   }
   .stroke-editor h3{font-family:var(--display);font-size:13px;font-weight:600;margin:0;color:var(--violet);}
   .comp-item-editor h3{font-family:var(--display);font-size:13px;font-weight:600;margin:0;color:var(--coral);}
@@ -218,12 +235,12 @@
     border:1px dashed var(--border);border-radius:4px;padding:6px;background:var(--panel-alt);
     display:flex;flex-direction:column;gap:5px;
   }
-  .obj-card.selected{border-color:var(--violet);border-style:solid;}
+  .obj-card.selected{border-color:var(--violet);border-style:solid; background:rgba(139,92,246,0.03);}
   .obj-thumb{
     position:relative;width:100%;aspect-ratio:1/1;border-radius:3px;overflow:hidden;
     background:#fff;
     background-image:linear-gradient(var(--canvas-grid) 1px, transparent 1px),linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
-    background-size:10px 10px;
+    background-size:10px 10px; border:1px solid var(--border-soft);
   }
   .obj-thumb canvas{width:100%;height:100%;object-fit:contain;}
   .obj-meta{font-family:var(--mono);font-size:9.5px;color:var(--ink-dim);display:flex;justify-content:space-between;}
@@ -243,7 +260,7 @@
   .var-thumb{
     width:100%;aspect-ratio:1/1;border-radius:3px;background:#fff;overflow:hidden;
     background-image:linear-gradient(var(--canvas-grid) 1px, transparent 1px),linear-gradient(90deg, var(--canvas-grid) 1px, transparent 1px);
-    background-size:10px 10px;
+    background-size:10px 10px; border:1px solid var(--border-soft);
   }
   .var-thumb canvas{width:100%;height:100%;object-fit:contain;}
   .variation-actions{display:flex;gap:8px;}
@@ -257,9 +274,9 @@
   .bg-swatches{display:flex;gap:6px;align-items:center;}
   .swatch{
     width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;
-    box-shadow:0 0 0 1px var(--border-soft);
+    box-shadow:0 0 0 1px var(--border);
   }
-  .swatch.active{border-color:var(--ink);}
+  .swatch.active{border-color:var(--ink); box-shadow:0 0 0 2px var(--ink);}
   .swatch-custom{position:relative;overflow:hidden;}
   .swatch-custom input[type=color]{
     position:absolute;top:-4px;left:-4px;width:36px;height:36px;border:none;padding:0;cursor:pointer;
@@ -272,9 +289,10 @@
 
   .toast{
     position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
-    background:var(--panel-alt);border:1px solid var(--border);color:var(--ink);
+    background:var(--ink);border:1px solid var(--ink);color:#fff;
     font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:5px;
     opacity:0;transition:opacity 0.25s, transform 0.25s;pointer-events:none;z-index:50;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
@@ -282,45 +300,32 @@
   .folder-chip{
     display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;
     color:var(--ink-dim);border:1px solid var(--border);padding:6px 10px;border-radius:4px;
-    background:var(--panel-alt);flex-wrap:wrap;
+    background:var(--panel);flex-wrap:wrap;
   }
   .folder-chip .folder-status{color:var(--ink);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .folder-chip.connected{border-color:var(--lime);}
+  .folder-chip.connected{border-color:var(--ink);}
   .folder-chip .link-btn{
     background:transparent;border:1px solid var(--border);color:var(--ink);
     font-family:var(--mono);font-size:10.5px;padding:4px 8px;border-radius:3px;cursor:pointer;
+    transition: all 0.2s;
   }
-  .folder-chip .link-btn:hover{border-color:var(--lime);color:var(--lime);}
-  .folder-chip .link-btn.violet:hover{border-color:var(--violet);color:var(--violet);}
+  .folder-chip .link-btn:hover{border-color:var(--ink);background:var(--ink);color:#fff;}
+  .folder-chip .link-btn.violet:hover{border-color:var(--violet);background:var(--violet);color:#fff;}
 
   /* ---------- IO controls in samples panel ---------- */
   .io-controls{
     display:flex;flex-direction:column;gap:8px;
-    background:rgba(164,140,255,0.04);border:1px dashed var(--border);
+    background:var(--panel-alt);border:1px dashed var(--border);
     border-radius:4px;padding:10px;
   }
   .io-controls-row{display:flex;gap:6px;flex-wrap:wrap;}
   .io-controls-row .btn{flex:1;min-width:100px;}
   .io-hint{font-family:var(--mono);font-size:10px;color:var(--ink-faint);line-height:1.5;margin:0;}
-  .io-hint code{color:var(--lime);background:rgba(198,255,61,0.08);padding:1px 4px;border-radius:2px;}
+  .io-hint code{color:var(--violet);background:rgba(139,92,246,0.08);padding:1px 4px;border-radius:2px;}
 
-  /* ---------- drop overlay (panel highlight during drag) ---------- */
-  .drop-target{position:relative;}
-  .drop-target.drag-over::after{
-    content:'PNG 파일을 여기에 드롭하세요';
-    position:absolute;inset:0;
-    background:rgba(164,140,255,0.15);
-    border:2px dashed var(--violet);
-    border-radius:6px;
-    display:flex;align-items:center;justify-content:center;
-    font-family:var(--mono);font-size:14px;color:var(--violet);letter-spacing:0.5px;
-    pointer-events:none;z-index:20;
-    backdrop-filter:blur(2px);
-  }
-
-  /* ---------- GitHub modal ---------- */
+  /* ---------- GitHub List Modal (New) ---------- */
   .modal-backdrop{
-    position:fixed;inset:0;background:rgba(10,10,14,0.72);backdrop-filter:blur(4px);
+    position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);
     display:none;align-items:center;justify-content:center;z-index:100;padding:20px;
   }
   .modal-backdrop.show{display:flex;}
@@ -328,23 +333,44 @@
     background:var(--panel);border:1px solid var(--border);border-radius:8px;
     padding:24px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;
     display:flex;flex-direction:column;gap:14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
   }
+  .modal.wide { max-width: 680px; }
   .modal h2{font-family:var(--display);font-size:18px;font-weight:600;margin:0;letter-spacing:0.3px;}
   .modal p.hint{font-family:var(--mono);font-size:11px;color:var(--ink-dim);line-height:1.6;margin:0;}
+  
+  .gh-load-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    max-height: 400px; overflow-y: auto; padding: 4px; background:var(--panel-alt);
+    border: 1px solid var(--border); border-radius:4px;
+  }
+  .gh-item {
+    border: 1px solid var(--border); border-radius: 4px; padding: 4px;
+    cursor: pointer; position: relative; transition: border-color 0.2s; background:#fff;
+  }
+  .gh-item.selected { border-color: var(--violet); background: rgba(139,92,246,0.05); }
+  .gh-item img { width: 100%; aspect-ratio: 1/1; object-fit: contain; }
+  .gh-item-name { font-size: 9px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; color:var(--ink-dim); }
+  .gh-item .check {
+    position: absolute; top: 4px; left: 4px; width: 16px; height: 16px; 
+    border: 1px solid var(--border); border-radius: 2px; background: #fff;
+  }
+  .gh-item.selected .check { background: var(--violet); border-color: var(--violet); }
+
   .modal .field{display:flex;flex-direction:column;gap:5px;}
   .modal .field label{font-family:var(--mono);font-size:11px;color:var(--ink-dim);letter-spacing:0.3px;}
   .modal .field input{
     background:var(--panel-alt);border:1px solid var(--border);color:var(--ink);
     font-family:var(--mono);font-size:12px;padding:9px 11px;border-radius:4px;outline:none;
   }
-  .modal .field input:focus{border-color:var(--lime);}
+  .modal .field input:focus{border-color:var(--violet);}
   .modal .field .sub{font-family:var(--mono);font-size:10px;color:var(--ink-faint);line-height:1.5;}
   .modal .modal-btns{display:flex;gap:8px;margin-top:6px;}
   .modal .modal-btns .btn{flex:1;}
-  .modal a{color:var(--lime);text-decoration:none;}
+  .modal a{color:var(--violet);text-decoration:none;}
   .modal a:hover{text-decoration:underline;}
   .modal .warn-box{
-    border:1px solid var(--coral);background:rgba(255,106,77,0.06);
+    border:1px solid var(--coral);background:rgba(255,85,85,0.05);
     padding:10px 12px;border-radius:4px;font-family:var(--mono);font-size:10.5px;
     color:var(--coral);line-height:1.55;
   }
@@ -354,9 +380,10 @@
   .archive-link{
     font-family:var(--mono);font-size:11px;color:var(--ink-dim);
     border:1px solid var(--border);padding:7px 12px;border-radius:3px;
-    text-decoration:none;letter-spacing:0.3px;
+    text-decoration:none;letter-spacing:0.3px; background:var(--panel);
+    transition: all 0.2s;
   }
-  .archive-link:hover{border-color:var(--lime);color:var(--lime);}
+  .archive-link:hover{border-color:var(--ink); background:var(--ink); color:#fff;}
 </style>
 </head>
 <body>
@@ -366,7 +393,7 @@
     <div class="brand">
       <div class="brand-mark">◇</div>
       <div>
-        <h1>OBJET STUDIO</h1>
+        <h1>NU-ABSTRACT</h1>
         <p>그리면 표본이 되고, 표본은 자유로운 다층 구성이 됩니다 — 1080 × 1080</p>
       </div>
     </div>
@@ -391,8 +418,19 @@
     <section class="panel draw-panel">
       <div class="panel-head"><span class="panel-index">01</span><h2>드로잉</h2></div>
 
+      <!-- 트레이스 이미지 도구 추가 -->
+      <div class="trace-tools">
+        <span>투명 참고자료:</span>
+        <button class="btn btn-sm" id="btnLoadTrace">불러오기</button>
+        <input type="file" id="inputTrace" accept="image/*" hidden>
+        <input type="range" id="traceOpacity" min="0" max="100" value="30" title="투명도 조절" style="width:70px">
+        <button class="btn btn-sm btn-ghost" id="btnClearTrace">제거</button>
+      </div>
+
       <div class="canvas-frame">
         <div class="paper-bg"></div>
+        <!-- 밑그림(트레이스) 레이어 -->
+        <img id="traceImage" alt="trace layer">
         <canvas id="drawCanvas" width="1080" height="1080"></canvas>
         <div id="canvasCursor"></div>
       </div>
@@ -412,11 +450,11 @@
 
       <div class="color-targets">
         <div class="color-target active" id="strokeTarget">
-          <div class="swatch-preview" id="strokeSwatchPreview" style="background:#1b1b1f"></div>
+          <div class="swatch-preview" id="strokeSwatchPreview" style="background:#111111"></div>
           <span>선 색상</span>
         </div>
         <div class="color-target" id="fillTarget">
-          <div class="swatch-preview" id="fillSwatchPreview" style="background:#ff5500"></div>
+          <div class="swatch-preview" id="fillSwatchPreview" style="background:#ff5555"></div>
           <span>채우기 색상</span>
         </div>
         <div class="brush-preview-wrap">
@@ -429,7 +467,7 @@
         <div class="palette-grid" id="paletteGrid"></div>
         <div class="palette-custom">
           <span>커스텀 컬러</span>
-          <input type="color" id="customColorPicker" value="#1b1b1f">
+          <input type="color" id="customColorPicker" value="#111111">
         </div>
       </div>
 
@@ -452,7 +490,7 @@
       <div class="stroke-editor" id="strokeEditor" hidden>
         <h3>선택된 선 편집</h3>
         <div class="color-target active" id="selStrokeColorRow" style="cursor:default;">
-          <div class="swatch-preview" id="selStrokeColorPreview" style="background:#1b1b1f"></div>
+          <div class="swatch-preview" id="selStrokeColorPreview" style="background:#111111"></div>
           <span>이 선의 색상 — 위 팔레트에서 클릭해 변경</span>
         </div>
         <div class="range-row">
@@ -465,8 +503,6 @@
           <button class="btn btn-coral" id="deleteStrokeBtn">이 선 삭제</button>
         </div>
       </div>
-
-      <p class="hint-note">편집(◈) 툴로 선을 클릭하면 그린 후에도 개별 선의 색상과 굵기를 언제든 변경할 수 있습니다.</p>
 
       <label class="checkbox-row">
         <input type="checkbox" id="keepAfterRegister">
@@ -484,7 +520,7 @@
           <button class="btn btn-sm" id="openFilesBtn">💾 오프라인 불러오기</button>
           <button class="btn btn-sm" id="loadFolderBtn">🌐 온라인 불러오기</button>
         </div>
-        <p class="io-hint">오프라인: 내 컴퓨터의 PNG 파일 선택 · 온라인: 연결된 GitHub 저장소에서 자동 불러오기.<br>등록된 오브젝트는 <code>gallery/YYYY-MM-DD/</code> 아래에 자동 저장됩니다.</p>
+        <p class="io-hint">오프라인: 내 컴퓨터의 PNG 선택 · 온라인: 연결된 GitHub 목록 선택 불러오기.<br>등록된 오브젝트는 <code>gallery/YYYY-MM-DD/</code> 에 자동 저장됩니다.</p>
         <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" multiple hidden>
       </div>
 
@@ -493,8 +529,8 @@
       </div>
 
       <div class="variation-block" id="variationBlock" hidden>
-        <div class="panel-head-sub"><h3>고다양성 선형 추적 베리에이션 — <span id="varTargetLabel"></span></h3></div>
-        <p class="hint-note">선 형태와 방향성 알고리즘을 크게 확장하여 원본의 의도를 파괴하지 않으면서 과감하고 다채로운 변주를 일으킵니다.</p>
+        <div class="panel-head-sub"><h3>선형 추적 베리에이션 — <span id="varTargetLabel"></span></h3></div>
+        <p class="hint-note">원본의 의도를 해치지 않고, <b>선과 색상의 중복 없이</b> 형태와 색상만 자연스럽게 변주합니다.</p>
         <div class="variations-grid" id="variationsGrid"></div>
         <div class="variation-actions">
           <button class="btn btn-ghost" id="regenVarBtn">다시 생성</button>
@@ -545,12 +581,12 @@
         <div class="comp-row">
           <span class="label-mono">배경 설정</span>
           <div class="bg-swatches" id="bgSwatches">
-            <div class="swatch active" data-bg="#0f0f12" style="background:#0f0f12"></div>
+            <div class="swatch active" data-bg="#f8f9fa" style="background:#f8f9fa"></div>
             <div class="swatch" data-bg="#ffffff" style="background:#ffffff"></div>
             <div class="swatch" data-bg="#efe9db" style="background:#efe9db"></div>
-            <div class="swatch" data-bg="#1b1b1f" style="background:#1b1b1f"></div>
+            <div class="swatch" data-bg="#111111" style="background:#111111"></div>
             <div class="swatch swatch-custom" style="background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)">
-              <input type="color" id="customBg" value="#0f0f12">
+              <input type="color" id="customBg" value="#f8f9fa">
             </div>
           </div>
         </div>
@@ -565,10 +601,23 @@
 
   </div>
 
-  <footer>로컬 메모리 구동 · 새로고침하면 임시 표본이 초기화됩니다</footer>
+  <footer>NU-ABSTRACT STUDIO · 로컬 메모리 구동 · 새로고침하면 임시 표본이 초기화됩니다</footer>
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- GitHub Load Modal (신규) -->
+<div class="modal-backdrop" id="ghLoadModal">
+  <div class="modal wide">
+    <h2>온라인 아카이브 불러오기</h2>
+    <p class="hint">저장소에서 발견된 오브젝트 목록입니다. 이미 불러온 파일은 제외됩니다.<br>원하는 항목을 선택 후 [불러오기]를 누르세요.</p>
+    <div class="gh-load-grid" id="ghLoadList"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" id="ghLoadCancel">취소</button>
+      <button class="btn btn-violet" id="ghLoadSubmit">선택한 항목 불러오기</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-backdrop" id="ghModal">
   <div class="modal">
@@ -578,25 +627,20 @@
     <div class="field">
       <label>소유자 (Owner)</label>
       <input type="text" id="ghOwner" placeholder="예: myusername" autocomplete="off">
-      <span class="sub">GitHub 사용자명 또는 조직명</span>
     </div>
-
     <div class="field">
       <label>저장소 이름 (Repository)</label>
-      <input type="text" id="ghRepo" placeholder="예: objet-studio" autocomplete="off">
+      <input type="text" id="ghRepo" placeholder="예: nu-abstract" autocomplete="off">
     </div>
-
     <div class="field">
       <label>브랜치 (Branch)</label>
       <input type="text" id="ghBranch" placeholder="main" value="main" autocomplete="off">
     </div>
-
     <div class="field">
       <label>저장 경로 (Path prefix)</label>
       <input type="text" id="ghPath" placeholder="gallery" value="gallery" autocomplete="off">
-      <span class="sub">이 폴더 아래 <code style="color:var(--lime);">YYYY-MM-DD/pattern_*.png</code> 형태로 저장됩니다.</span>
+      <span class="sub">이 폴더 아래 <code style="color:var(--violet);">YYYY-MM-DD/pattern_*.png</code> 형태로 저장됩니다.</span>
     </div>
-
     <div class="field">
       <label>Personal Access Token (PAT)</label>
       <input type="password" id="ghToken" placeholder="ghp_..." autocomplete="off">
@@ -606,7 +650,7 @@
     </div>
 
     <div class="warn-box">
-      ⚠ 토큰은 이 브라우저의 localStorage에만 저장되며 서버로 전송되지 않습니다. 그러나 브라우저를 다른 사람과 공유하지 마세요. 공용 컴퓨터에서 사용했다면 반드시 [연결 해제] 후 종료하세요.
+      ⚠ 토큰은 이 브라우저의 localStorage에만 저장되며 서버로 전송되지 않습니다.
     </div>
 
     <div class="modal-btns">
@@ -623,13 +667,13 @@
 
   // ---------------- state ----------------
   const actions = [];   
-  const redoStack = []; // Undo/Redo 기록 관리를 위한 가상 스택 스토리지
+  const redoStack = [];
   const objects = [];        
+  const loadedFilenames = new Set(); // 중복 방지 세트
   let objCounter = 0;
   let currentVarTarget = null;
   let variationsCache = [];
 
-  // Composition interactive layout state
   const placedItems = []; 
   let selectedItemIdx = null;
   let isDraggingItem = false;
@@ -648,9 +692,25 @@
     toast._t = setTimeout(()=> el.classList.remove('show'), 2400);
   }
 
+  // ==================== TRACING IMAGE ====================
+  $('btnLoadTrace').addEventListener('click', () => $('inputTrace').click());
+  $('inputTrace').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const url = URL.createObjectURL(f);
+    $('traceImage').src = url;
+    $('traceImage').style.display = 'block';
+    e.target.value = ''; // 동일 파일 재선택 허용
+  });
+  $('traceOpacity').addEventListener('input', e => {
+    $('traceImage').style.opacity = e.target.value / 100;
+  });
+  $('btnClearTrace').addEventListener('click', () => {
+    $('traceImage').style.display = 'none';
+    $('traceImage').src = '';
+  });
+
   // ==================== FOLDER I/O STATE & UTILS ====================
-  // File System Access API 지원 브라우저에서 사용자가 선택한 디렉토리 핸들
-  // (Chrome, Edge, Opera 등에서만 지원. Firefox/Safari 에서는 다운로드로 폴백)
   let baseDirHandle = null;
   const hasFSAccess = typeof window.showDirectoryPicker === 'function';
 
@@ -687,7 +747,6 @@
     }
     try {
       baseDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-      // 쓰기 권한 확인
       const perm = await baseDirHandle.queryPermission({ mode: 'readwrite' });
       if(perm !== 'granted'){
         const req = await baseDirHandle.requestPermission({ mode: 'readwrite' });
@@ -705,7 +764,6 @@
     }
   }
 
-  // 다운로드 폴백 — 브라우저 다운로드 폴더로 저장 (a[download]는 하위 폴더 생성 불가)
   function saveViaDownload(canvas, filename){
     const link = document.createElement('a');
     link.download = filename;
@@ -716,7 +774,6 @@
   }
 
   // ==================== GITHUB CONFIG & COMMIT ====================
-  // 사용자의 GitHub 저장소로 PNG를 자동 커밋. 설정은 localStorage에 보관.
   const GH_STORAGE_KEY = 'objet_studio_gh_config';
   let ghConfig = null;
 
@@ -749,7 +806,6 @@
     }
   }
 
-  // Blob → base64 (fetch → readAsDataURL 파이프라인)
   function blobToBase64(blob){
     return new Promise((resolve, reject)=>{
       const reader = new FileReader();
@@ -763,7 +819,6 @@
     });
   }
 
-  // GitHub Contents API로 파일 커밋 (PUT /repos/{owner}/{repo}/contents/{path})
   async function commitToGitHub(canvas, filename, dateFolder){
     if(!ghConfig || !ghConfig.token) throw new Error('GitHub 설정이 없습니다.');
     const { owner, repo, branch, path, token } = ghConfig;
@@ -795,7 +850,6 @@
     return fullPath;
   }
 
-  // 저장소 접근 테스트 (Get repo metadata)
   async function testGitHubAccess(cfg){
     const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}`;
     const res = await fetch(url, {
@@ -811,17 +865,13 @@
     }
     return await res.json();
   }
-  // ==================== END GITHUB ====================
 
-  // 등록된 오브젝트 캔버스를 저장 (로컬 폴더 + GitHub 저장소로 동시 저장)
   async function savePatternToFolder(canvas, objId){
     const now = new Date();
     const dateFolder = todayFolderName(now);
     const filename = `pattern_${dateFolder}_${timeStamp(now)}_OBJ-${pad2(objId)}.png`;
 
     const results = [];
-
-    // 1) 로컬 저장 (폴더 연결됨 → 파일시스템, 아니면 다운로드)
     if(baseDirHandle){
       try {
         const dirHandle = await baseDirHandle.getDirectoryHandle(dateFolder, { create: true });
@@ -836,12 +886,10 @@
         results.push(`로컬 실패`);
       }
     } else if(!ghConfig){
-      // 로컬도 없고 GitHub도 없으면 다운로드로 폴백
       saveViaDownload(canvas, filename);
       results.push(`다운로드: ${filename}`);
     }
 
-    // 2) GitHub 저장소 커밋 (연결된 경우)
     if(ghConfig && ghConfig.token){
       try {
         const path = await commitToGitHub(canvas, filename, dateFolder);
@@ -851,15 +899,20 @@
         results.push(`GitHub 실패: ${e.message}`);
       }
     }
-
     toast(results.join(' · '));
     updateFolderChip();
   }
 
-  // 이미지 파일들을 표본 보관함으로 로드
   function loadImageFile(file){
     return new Promise((resolve, reject)=>{
       if(!file.type.startsWith('image/')){ resolve(null); return; }
+      
+      // 중복 로드 방지
+      if(loadedFilenames.has(file.name)){
+        resolve(null);
+        return;
+      }
+      
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
@@ -868,10 +921,10 @@
         const cx = c.getContext('2d');
         cx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
-        // 이미 오브젝트만 담긴 파일이지만, 안전을 위해 알파 기준 bbox 재크롭
         const bbox = getBBox(c);
         const finalC = bbox ? cropCanvas(c, bbox) : c;
-        addObject(finalC, null);
+        
+        addObject(finalC, null, file.name); // 파일명 전달
         resolve(finalC);
       };
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 로드 실패: '+file.name)); };
@@ -887,49 +940,13 @@
     }
     let ok = 0;
     for(const f of arr){
-      try { await loadImageFile(f); ok++; } catch(e){ console.error(e); }
+      try { 
+        const res = await loadImageFile(f); 
+        if(res) ok++; 
+      } catch(e){ console.error(e); }
     }
-    toast(`${ok}개 표본을 불러왔습니다.`);
-  }
-
-  // 연결된 폴더에서 특정 날짜(기본: 오늘) 하위 이미지를 모두 불러오기
-  async function loadImagesFromConnectedFolder(){
-    if(!baseDirHandle){
-      toast('먼저 저장 폴더를 연결해주세요.');
-      return;
-    }
-    // 사용 가능한 날짜 폴더 목록 수집
-    const dateFolders = [];
-    for await (const entry of baseDirHandle.values()){
-      if(entry.kind === 'directory' && /^\d{4}-\d{2}-\d{2}$/.test(entry.name)){
-        dateFolders.push(entry.name);
-      }
-    }
-    if(dateFolders.length === 0){
-      toast('연결된 폴더에 날짜 하위 폴더(YYYY-MM-DD)가 없습니다.');
-      return;
-    }
-    dateFolders.sort().reverse(); // 최신순
-    const today = todayFolderName();
-    const target = dateFolders.includes(today)
-      ? today
-      : prompt(`불러올 날짜 폴더를 선택하세요:\n${dateFolders.join(', ')}`, dateFolders[0]);
-    if(!target || !dateFolders.includes(target)){
-      toast('취소되었습니다.');
-      return;
-    }
-    const dirHandle = await baseDirHandle.getDirectoryHandle(target);
-    const files = [];
-    for await (const entry of dirHandle.values()){
-      if(entry.kind === 'file' && /\.(png|jpe?g|webp)$/i.test(entry.name)){
-        files.push(await entry.getFile());
-      }
-    }
-    if(files.length === 0){
-      toast(`${target} 폴더에 이미지가 없습니다.`);
-      return;
-    }
-    await loadImagesFromFileList(files);
+    if(ok > 0) toast(`${ok}개 표본을 새로 불러왔습니다.`);
+    else toast(`새로운 표본이 없습니다 (모두 중복됨).`);
   }
 
   // ---- 이벤트 바인딩: 폴더 연결 / 파일 열기 / 폴더 불러오기 ----
@@ -941,16 +958,20 @@
       e.target.value = '';
     }
   });
+
+  // ==================== GITHUB 선택적 불러오기 (NEW) ====================
+  let ghPendingFiles = [];
+
   $('loadFolderBtn').addEventListener('click', async ()=>{
     if(!ghConfig || !ghConfig.owner || !ghConfig.repo || !ghConfig.token){
       toast('먼저 상단의 [GitHub · 설정]에서 저장소를 연결해주세요.');
       return;
     }
-    await loadImagesFromGitHub();
+    toast('저장소를 스캔 중입니다...');
+    await scanGitHubAndShowModal();
   });
 
-  // GitHub 저장소의 gallery/ 하위 모든 이미지를 재귀적으로 불러오기
-  async function loadImagesFromGitHub(){
+  async function scanGitHubAndShowModal(){
     const pathPrefix = (ghConfig.path || 'gallery').replace(/^\/+|\/+$/g,'');
     const files = [];
 
@@ -964,7 +985,7 @@
         }
       });
       if(!res.ok){
-        if(res.status === 404) return; // 폴더가 아직 없음 (등록된 오브젝트 0개)
+        if(res.status === 404) return;
         const err = await res.json().catch(()=>({}));
         throw new Error(`API ${res.status}: ${err.message || res.statusText}`);
       }
@@ -973,12 +994,14 @@
       for(const it of items){
         if(it.type === 'dir') await walk(it.path);
         else if(it.type === 'file' && /\.(png|jpe?g|webp)$/i.test(it.name)){
-          files.push({ name: it.name, downloadUrl: it.download_url });
+          // 중복 필터링
+          if(!loadedFilenames.has(it.name)) {
+            files.push({ name: it.name, downloadUrl: it.download_url });
+          }
         }
       }
     }
 
-    toast('GitHub 저장소 스캔 중…');
     try {
       await walk(pathPrefix);
     } catch(e){
@@ -988,14 +1011,69 @@
     }
 
     if(files.length === 0){
-      toast(`${pathPrefix}/ 폴더에 이미지가 없습니다.`);
+      toast('가져올 새로운 이미지가 없습니다 (모두 이미 추가됨).');
       return;
     }
 
-    toast(`${files.length}개 이미지 다운로드 중…`);
+    ghPendingFiles = files;
+    renderGhLoadModal();
+    $('ghLoadModal').classList.add('show');
+  }
+
+  function renderGhLoadModal() {
+    const grid = $('ghLoadList');
+    grid.innerHTML = '';
+    ghPendingFiles.forEach((f, idx) => {
+      const el = document.createElement('div');
+      el.className = 'gh-item';
+      // 기본적으로 모두 선택 상태
+      el.classList.add('selected');
+      el.dataset.idx = idx;
+
+      const img = document.createElement('img');
+      img.src = f.downloadUrl; 
+      img.loading = 'lazy';
+      el.appendChild(img);
+
+      const check = document.createElement('div');
+      check.className = 'check';
+      el.appendChild(check);
+
+      const name = document.createElement('div');
+      name.className = 'gh-item-name';
+      name.textContent = f.name;
+      el.appendChild(name);
+
+      el.addEventListener('click', () => {
+        el.classList.toggle('selected');
+      });
+
+      grid.appendChild(el);
+    });
+  }
+
+  $('ghLoadCancel').addEventListener('click', () => {
+    $('ghLoadModal').classList.remove('show');
+    ghPendingFiles = [];
+  });
+
+  $('ghLoadSubmit').addEventListener('click', async () => {
+    const selectedNodes = document.querySelectorAll('#ghLoadList .gh-item.selected');
+    const selectedIdx = Array.from(selectedNodes).map(n => parseInt(n.dataset.idx));
+    
+    if(selectedIdx.length === 0){
+      toast('선택된 항목이 없습니다.');
+      return;
+    }
+
+    $('ghLoadModal').classList.remove('show');
+    const filesToLoad = selectedIdx.map(i => ghPendingFiles[i]);
+    ghPendingFiles = [];
+
+    toast(`${filesToLoad.length}개 이미지 다운로드 중…`);
     let ok = 0;
-    for(let i = 0; i < files.length; i++){
-      const f = files[i];
+    for(let i = 0; i < filesToLoad.length; i++){
+      const f = filesToLoad[i];
       try {
         const res = await fetch(f.downloadUrl);
         if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -1003,15 +1081,15 @@
         const file = new File([blob], f.name, { type: blob.type || 'image/png' });
         await loadImageFile(file);
         ok++;
-        if((i + 1) % 5 === 0 || i === files.length - 1){
-          toast(`불러오는 중… ${i + 1}/${files.length}`);
+        if((i + 1) % 5 === 0 || i === filesToLoad.length - 1){
+          toast(`불러오는 중… ${i + 1}/${filesToLoad.length}`);
         }
       } catch(e){ console.error(f.name, e); }
     }
-    toast(`GitHub에서 ${ok}개 표본을 불러왔습니다.`);
-  }
+    toast(`온라인에서 ${ok}개 표본을 불러왔습니다.`);
+  });
 
-  // ---- 드래그 & 드롭: 표본 보관함 패널 전체가 드롭 타겟 ----
+  // ---- 드래그 & 드롭 ----
   (function setupDragDrop(){
     const zone = $('samplesPanel');
     let depth = 0;
@@ -1029,7 +1107,6 @@
       e.stopPropagation();
       depth = 0;
       zone.classList.remove('drag-over');
-      // items 를 통해 폴더 드롭도 지원 (webkitGetAsEntry)
       const files = [];
       if(e.dataTransfer.items && e.dataTransfer.items.length){
         const promises = [];
@@ -1050,7 +1127,6 @@
       await loadImagesFromFileList(files);
     });
 
-    // 폴더/파일 재귀 수집 (드롭한 폴더 안의 모든 이미지 추출)
     function collectEntry(entry, files){
       return new Promise(resolve=>{
         if(entry.isFile){
@@ -1073,12 +1149,9 @@
       });
     }
 
-    // 브라우저 창 전체 밖에서의 파일 드롭이 페이지에서 열리는 것 방지
     ['dragover','drop'].forEach(evt=>{
       window.addEventListener(evt, e=>{
-        if(!zone.contains(e.target)){
-          e.preventDefault();
-        }
+        if(!zone.contains(e.target)) e.preventDefault();
       });
     });
   })();
@@ -1139,8 +1212,7 @@
       btn.disabled = false; btn.textContent = '저장 & 연결 테스트';
     }
   });
-  // ==================== END GITHUB MODAL ====================
-  // ==================== END FOLDER I/O ====================
+
 
   function updateStat(){
     $('statReadout').textContent = `OBJ ${String(objects.length).padStart(4,'0')} · READY`;
@@ -1186,7 +1258,6 @@
     return hslToHex(h, s, l);
   }
 
-  // ---------------- 12 Highly Saturated Colors ----------------
   function buildPalette(){
     return [
       '#ff0000', '#ff5500', '#ffaa00', '#ffff00',
@@ -1196,7 +1267,6 @@
   }
   const PALETTE = buildPalette();
 
-  // ---------------- drawing context init ----------------
   const drawCanvas = $('drawCanvas');
   const dctx = drawCanvas.getContext('2d', {willReadFrequently:true});
   dctx.lineCap = 'round';
@@ -1206,15 +1276,14 @@
   let selectedStrokeId = null;
 
   let currentTool = 'brush';       
-  let strokeColor = '#1b1b1f';
-  let fillColor = '#ff5500';
+  let strokeColor = '#111111';
+  let fillColor = '#ff5555';
   let activeColorTarget = 'stroke'; 
   let brushSize = 8;
   let tolerance = 32;
   let drawing = false;
   let currentAction = null;
 
-  // 동적 원형 커서 가이드 제어 로직
   function updateCursorState(e) {
     const rect = drawCanvas.getBoundingClientRect();
     if (currentTool === 'brush' || currentTool === 'eraser') {
@@ -1361,7 +1430,7 @@
     const pad = a.width/2 + 10;
     minX-=pad; minY-=pad; maxX+=pad; maxY+=pad;
     dctx.save();
-    dctx.strokeStyle = '#c6ff3d';
+    dctx.strokeStyle = '#8b5cf6';
     dctx.lineWidth = 3;
     dctx.setLineDash([10,8]);
     dctx.strokeRect(minX, minY, maxX-minX, maxY-minY);
@@ -1429,7 +1498,7 @@
       setTimeout(()=>{
         floodFillApply(dctx, p.x, p.y, fillColor, tolerance);
         actions.push({ type:'fill', id:++actionCounter, x:p.x, y:p.y, color:fillColor, tolerance });
-        redoStack.length = 0; // 새로운 드로잉 액션 유입 시 레두 히스토리 초기화
+        redoStack.length = 0; 
         drawCanvas.style.cursor = 'copy';
       }, 10);
       return;
@@ -1475,7 +1544,7 @@
       dctx.beginPath();
       if(currentAction && currentAction.points.length>0){
         actions.push(currentAction);
-        redoStack.length = 0; // 히스토리 스택 리셋 보정
+        redoStack.length = 0; 
       }
       currentAction = null;
     }
@@ -1483,7 +1552,6 @@
   window.addEventListener('pointerup', endStroke);
   window.addEventListener('pointercancel', endStroke);
 
-  // Undo / Redo 핵심 이벤트 리스너 바인딩 연산
   $('undoBtn').addEventListener('click', () => {
     if (actions.length === 0) {
       toast('되돌릴 드로잉 기록이 없습니다.');
@@ -1601,7 +1669,6 @@
 
   updateColorPreviews();
 
-  // ---------------- bbox / crop utils ----------------
   function getBBox(canvas){
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
@@ -1655,11 +1722,11 @@
     return result;
   }
 
-  // ---------------- object registry ----------------
-  function addObject(canvas, recipe){
+  function addObject(canvas, recipe, filename = null){
     objCounter++;
-    const obj = { id: objCounter, canvas, w: canvas.width, h: canvas.height, recipe: recipe || null };
+    const obj = { id: objCounter, canvas, w: canvas.width, h: canvas.height, recipe: recipe || null, filename };
     objects.push(obj);
+    if(filename) loadedFilenames.add(filename); // 중복 방지를 위한 기록
     renderGallery();
     updateStat();
     return obj;
@@ -1667,7 +1734,11 @@
 
   function removeObject(id){
     const idx = objects.findIndex(o=>o.id===id);
-    if(idx>-1) objects.splice(idx,1);
+    if(idx>-1) {
+      const obj = objects[idx];
+      if(obj.filename) loadedFilenames.delete(obj.filename);
+      objects.splice(idx,1);
+    }
     if(currentVarTarget && currentVarTarget.id===id){
       currentVarTarget = null;
       $('variationBlock').hidden = true;
@@ -1740,7 +1811,6 @@
       redoStack.length = 0;
       clearStrokeSelection();
     }
-    // 자동으로 오브젝트만 담긴 PNG를 [연결폴더]/YYYY-MM-DD/ 로 저장 (미연결 시 다운로드 폴백)
     try {
       await savePatternToFolder(cropped, obj.id);
     } catch (err) {
@@ -1749,7 +1819,8 @@
     }
   });
 
-  // ================= EXTREME DIVERSITY REGENERATOR ENGINE =================
+  // ================= REFINED VARIATION ENGINE =================
+  // 중복(레이어 복제) 없이, 공간 워프(형태 변형)와 약간의 색상 변경만 적용.
   function applyDirectionalJitter(pts, amp) {
     if (pts.length < 2) return pts;
     return pts.map((p, i) => {
@@ -1761,9 +1832,8 @@
       let nx = -dy / len; 
       let ny = dx / len;  
 
-      // 지터 폭과 무작위 텐션을 강화하여 선의 파격적인 변주 유도
-      let shiftNormal = rand(-amp, amp) * 1.8;
-      let shiftTangent = rand(-amp, amp) * 1.1;
+      let shiftNormal = rand(-amp, amp) * 1.5;
+      let shiftTangent = rand(-amp, amp) * 1.0;
       return {
         x: p.x + nx * shiftNormal + (dx / len) * shiftTangent,
         y: p.y + ny * shiftNormal + (dy / len) * shiftTangent
@@ -1781,7 +1851,6 @@
     ctx.stroke();
   }
 
-  // ⚠ 원본 누락 헬퍼 보강: 폴리라인의 총 길이(연속 점 사이 유클리드 거리의 합)
   function pathLen(pts){
     let L = 0;
     for(let i=1; i<pts.length; i++){
@@ -1817,23 +1886,17 @@
     return out;
   }
 
-  // ==================== SHAPE-PRESERVING WARP FIELDS ====================
-  // 포인트별 랜덤 노이즈로는 형태가 파괴되므로, 좌표계 전체를 부드럽게 변형하는
-  // 코히런트 워프 함수를 사용해 "원본이 무엇인지 알아볼 수 있는" 다양한 변주를 생성.
-  // buildWarp(스타일, 오브젝트) → (점 좌표) => 변형된 점 좌표 를 반환
   function buildWarp(st, obj){
     const cxRef = obj.w / 2;
     const cyRef = obj.h / 2;
     const maxR  = Math.hypot(obj.w/2, obj.h/2) || 1;
-    // 부호 있는 랜덤: 항상 최소값 이상의 크기를 보장하며 방향은 무작위 → 매 변주마다 시각적 특성이 뚜렷
     const signedRand = (min, max) => (Math.random() < 0.5 ? -1 : 1) * rand(min, max);
 
     if(st.warp === 'wave'){
-      // 사인파 기반 유기적 웨이브: X는 Y좌표에, Y는 X좌표에 따라 진동 → 물결 형태
-      const ampX   = rand(st.waveAmp[0], st.waveAmp[1]);
-      const ampY   = rand(st.waveAmp[0], st.waveAmp[1]);
-      const freqX  = rand(0.010, 0.022);
-      const freqY  = rand(0.010, 0.022);
+      const ampX = rand(st.waveAmp[0], st.waveAmp[1]);
+      const ampY = rand(st.waveAmp[0], st.waveAmp[1]);
+      const freqX = rand(0.010, 0.022);
+      const freqY = rand(0.010, 0.022);
       const phaseX = rand(0, Math.PI * 2);
       const phaseY = rand(0, Math.PI * 2);
       return (p)=>({
@@ -1841,9 +1904,7 @@
         y: p.y + Math.sin(p.x * freqX + phaseY) * ampY,
       });
     }
-
     if(st.warp === 'bulge'){
-      // 라디얼 벌지/핀치: 중심으로부터 거리에 따라 확장 또는 수축, 가장자리에서 0으로 수렴
       const strength = signedRand(st.bulgeRange[0], st.bulgeRange[1]);
       return (p)=>{
         const dx = p.x - cxRef, dy = p.y - cyRef;
@@ -1852,9 +1913,7 @@
         return { x: cxRef + dx * factor, y: cyRef + dy * factor };
       };
     }
-
     if(st.warp === 'twist'){
-      // 트위스트: 중심에서 멀수록 회전각이 커지는 소용돌이 왜곡
       const amount = signedRand(st.twistRange[0], st.twistRange[1]);
       return (p)=>{
         const dx = p.x - cxRef, dy = p.y - cyRef;
@@ -1864,9 +1923,7 @@
         return { x: cxRef + dx * cs - dy * sn, y: cyRef + dx * sn + dy * cs };
       };
     }
-
     if(st.warp === 'noise'){
-      // 저주파 사인파 합성으로 코히런트 노이즈 근사 (부드러운 유기 왜곡)
       const amp = rand(st.noiseAmp[0], st.noiseAmp[1]);
       const s1  = rand(0, 100), s2 = rand(0, 100);
       return (p)=>{
@@ -1877,9 +1934,7 @@
         return { x: p.x + nx, y: p.y + ny };
       };
     }
-
     if(st.warp === 'shear'){
-      // 셰어: 한 축을 다른 축에 대해 기울여 평면 자체를 비트는 왜곡
       const shX = signedRand(st.shearRange[0], st.shearRange[1]);
       const shY = signedRand(st.shearRange[0], st.shearRange[1]);
       return (p)=>({
@@ -1887,46 +1942,16 @@
         y: p.y + (p.x - cxRef) * shY,
       });
     }
-
-    // 'none' — 워프 없음(에코·강약 스타일 등이 사용)
     return (p)=> p;
   }
 
-  // ==================== 6가지 형태 다양성 스타일 ====================
-  // 원본 형태를 알아볼 수 있게 유지하면서 각 카드가 시각적으로 뚜렷이 달라 보이도록 설계.
-  // - jitter는 손그림 질감용 미세 노이즈(≤ 2px)로만 사용
-  // - 형태 다양성은 warp 필드가 담당
-  // - 색상 다양성은 팔레트 배정 방식(makeVariation 내부)이 담당하며
-  //   hueRange는 팔레트 각 항목이 취할 수 있는 색상환 회전 범위를 정의
+  // 중복 렌더링이 제거된 형태 왜곡과 단일 렌더링 방식의 스타일들
   const VAR_STYLES = [
-    { label:'유기적 웨이브', type:'refined', warp:'wave',
-      waveAmp:[7, 15],
-      jitter: 0.6, widthMul: 1.0,
-      hueRange:[-140, 140], satRange:[0.75, 1.3], lightRange:[0.85, 1.15] },
-
-    { label:'라디얼 벌지', type:'refined', warp:'bulge',
-      bulgeRange:[0.15, 0.32],
-      jitter: 0.6, widthMul: 1.0,
-      hueRange:[-120, 120], satRange:[0.75, 1.3], lightRange:[0.85, 1.15] },
-
-    { label:'회전 트위스트', type:'refined', warp:'twist',
-      twistRange:[0.28, 0.65],
-      jitter: 0.5, widthMul: 1.0,
-      hueRange:[-110, 110], satRange:[0.75, 1.3], lightRange:[0.85, 1.15] },
-
-    { label:'코히런트 노이즈', type:'refined', warp:'noise',
-      noiseAmp:[5, 11],
-      jitter: 0.5, widthMul: 1.05,
-      hueRange:[-130, 130], satRange:[0.75, 1.3], lightRange:[0.85, 1.15] },
-
-    { label:'회화 강약 증폭', type:'gestural', warp:'shear',
-      shearRange:[0.05, 0.14],
-      jitter: 1.0, widthMul: 1.5,
-      hueRange:[-90, 90],   satRange:[0.9, 1.35],  lightRange:[0.85, 1.1] },
-
-    { label:'RGB 에코 잔상', type:'echo', warp:'none',
-      jitter: 0.8, widthMul: 0.9,
-      hueRange:[-160, 160], satRange:[0.75, 1.35], lightRange:[0.85, 1.15] },
+    { label:'유기적 웨이브', warp:'wave', waveAmp:[7, 15], jitter: 0.6, widthMul: 1.0, hueRange:[-60, 60], satRange:[0.9, 1.1], lightRange:[0.9, 1.1] },
+    { label:'라디얼 벌지', warp:'bulge', bulgeRange:[0.15, 0.32], jitter: 0.6, widthMul: 1.0, hueRange:[-60, 60], satRange:[0.9, 1.1], lightRange:[0.9, 1.1] },
+    { label:'회전 트위스트', warp:'twist', twistRange:[0.28, 0.65], jitter: 0.5, widthMul: 1.0, hueRange:[-60, 60], satRange:[0.9, 1.1], lightRange:[0.9, 1.1] },
+    { label:'코히런트 노이즈', warp:'noise', noiseAmp:[5, 11], jitter: 0.5, widthMul: 1.0, hueRange:[-60, 60], satRange:[0.9, 1.1], lightRange:[0.9, 1.1] },
+    { label:'공간 비틀림(셰어)', warp:'shear', shearRange:[0.05, 0.14], jitter: 0.8, widthMul: 1.1, hueRange:[-60, 60], satRange:[0.9, 1.1], lightRange:[0.9, 1.1] }
   ];
 
   function makeVariation(obj, styleIdx){
@@ -1938,45 +1963,28 @@
     const centerX = size/2, centerY = size/2;
 
     const angle = rand(-12, 12) * Math.PI/180;
-    // 완만한 비균일 스케일(0.88 ~ 1.14 사이 살짝 다른 X/Y 배율) → 형태는 인식되면서
-    // 각 카드가 조금씩 다른 실루엣을 갖도록 유도
-    const baseScale = rand(0.88, 1.14);
-    const scaleX = baseScale * rand(0.94, 1.06);
-    const scaleY = baseScale * rand(0.94, 1.06);
+    const baseScale = rand(0.9, 1.1);
+    const scaleX = baseScale * rand(0.95, 1.05);
+    const scaleY = baseScale * rand(0.95, 1.05);
 
-    // ==================== COLOR VARIATION (팔레트 기반 다색 배정) ====================
-    // 이 베리에이션에 사용할 색상 이동 팔레트를 3~5개 생성.
-    // 각 선/채우기 요소는 이 팔레트에서 랜덤으로 하나를 뽑아 색상 이동을 적용한다.
-    // → 한 카드 안에서도 요소마다 서로 다른 색으로 표현되어 "다양한 색상 변화"가 발생.
-    const paletteSize = 3 + Math.floor(rand(0, 3));  // 3, 4, 또는 5
     const colorPalette = [];
-    for(let i = 0; i < paletteSize; i++){
+    for(let i = 0; i < 3; i++){
       colorPalette.push({
         hue:   rand(st.hueRange[0],   st.hueRange[1]),
         sat:   rand(st.satRange[0],   st.satRange[1]),
         light: rand(st.lightRange[0], st.lightRange[1]),
       });
     }
-    // 팔레트에서 한 항목을 랜덤으로 뽑기
     const pickShift = () => colorPalette[Math.floor(Math.random() * colorPalette.length)];
-    // 원본 색상에 팔레트 이동을 적용해 새 색상 반환
     const pickColor = (hex) => {
       const s = pickShift();
       return shiftColor(hex, s.hue, s.sat, s.light);
     };
-    // makeTransformVariation 폴백에서 참조하는 대표 이동값(팔레트 중앙값 근사)
-    const hueShift = colorPalette[0].hue;
-    const satMul   = colorPalette[0].sat;
-    const lightMul = colorPalette[0].light;
 
-    // ==================== SHAPE WARP ====================
-    // 스타일마다 매번 새로운 워프 필드를 생성 → 형태 다양성의 핵심
     const warpFn = buildWarp(st, obj);
 
     function transformPt(p){
-      // 1) 코히런트 워프로 형태를 부드럽게 변형
       const w = warpFn(p);
-      // 2) 오브젝트 중심 기준 어파인 변환(비균일 스케일 + 회전 + 중심 이동)
       const dx = (w.x - obj.w/2) * scaleX;
       const dy = (w.y - obj.h/2) * scaleY;
       return {
@@ -1993,10 +2001,7 @@
     obj.recipe.forEach(a=>{
       if(a.type === 'stroke'){
         let pts = resamplePts(a.points, Math.max(16, Math.floor(a.points.length * 1.1)));
-
-        // ⚠ 버그 수정: finalPts 등 재사용 변수를 스트로크 스코프의 최상단에서 선언
-        //   (기존에는 if 블록 내부에서 let 으로 선언되어 있어 외부에서 참조 시 ReferenceError 발생)
-        let finalPts   = null;
+        let finalPts = null;
         let finalWidth = a.width;
         let finalColor = a.color;
 
@@ -2004,7 +2009,6 @@
         cx.lineCap = 'round'; cx.lineJoin = 'round';
 
         if(a.tool === 'eraser'){
-          // 지우개는 색상 변조 없이 destination-out 만 적용
           cx.globalCompositeOperation = 'destination-out';
           cx.strokeStyle = 'rgba(0,0,0,1)';
           finalWidth = Math.max(1.5, a.width * baseScale);
@@ -2014,68 +2018,27 @@
           drawSinglePath(cx, finalPts);
         } else {
           cx.globalCompositeOperation = 'source-over';
-          // 이 선에 대해 팔레트에서 한 항목을 뽑아 색상 이동 적용 → 선마다 다른 색
+          // 단 한 번만 선을 그립니다. (중복 방지)
           const strokeShift = pickShift();
           finalColor = shiftColor(a.color, strokeShift.hue, strokeShift.sat, strokeShift.light);
           cx.strokeStyle = finalColor;
 
-          if (st.type === 'gestural') {
-            // 회화적 강약: 붓질의 시작·중간·끝 두께가 사인파로 변화, 워프(셰어)로 기울기 왜곡 추가
-            let jittered = applyDirectionalJitter(pts, st.jitter);
-            finalPts = jittered.map(transformPt);
-            finalWidth = Math.max(1.2, a.width * st.widthMul);
-            for (let i = 1; i < finalPts.length; i++) {
-              const t = i / finalPts.length;
-              cx.lineWidth = Math.max(1.2, a.width * st.widthMul * (0.35 + 1.1 * Math.sin(t * Math.PI)));
-              cx.beginPath();
-              cx.moveTo(finalPts[i - 1].x, finalPts[i - 1].y);
-              cx.lineTo(finalPts[i].x, finalPts[i].y);
-              cx.stroke();
-            }
-          }
-          else if (st.type === 'echo') {
-            // RGB 잔상: 3개 레이어가 이 선의 팔레트 색을 중심으로 좌우 RGB 분리
-            // → 선마다 다른 팔레트 색을 취하되, 한 선의 3 레이어는 색상 분리 효과로 묶임
-            finalPts = pts.map(transformPt);
-            finalWidth = Math.max(1, a.width * st.widthMul);
-            const offsets = [ {x:-3,y:-2}, {x:0,y:0}, {x:3,y:2} ];
-            for (let s = 0; s < 3; s++) {
-              cx.lineWidth = Math.max(1, a.width * st.widthMul);
-              cx.globalAlpha = 0.75;
-              cx.strokeStyle = shiftColor(a.color, strokeShift.hue + (s - 1) * 30, strokeShift.sat, strokeShift.light);
-              const layer = pts.map(p => ({
-                x: p.x + offsets[s].x,
-                y: p.y + offsets[s].y
-              })).map(transformPt);
-              drawSinglePath(cx, layer);
-            }
-            cx.globalAlpha = 1;
-          }
-          else {
-            // refined / wave / bulge / twist / noise 계열 — 워프 함수가 형태 다양성을 담당
-            // 여기서는 손그림 질감을 위한 미세 지터만 얹고 곧게 그림
-            let jittered = applyDirectionalJitter(pts, st.jitter);
-            finalPts = jittered.map(transformPt);
-            finalWidth = Math.max(1, a.width * st.widthMul);
-            cx.lineWidth = finalWidth;
-            drawSinglePath(cx, finalPts);
-          }
+          let jittered = applyDirectionalJitter(pts, st.jitter);
+          finalPts = jittered.map(transformPt);
+          finalWidth = Math.max(1, a.width * st.widthMul);
+          cx.lineWidth = finalWidth;
+          drawSinglePath(cx, finalPts);
         }
         cx.restore();
 
-        // 유효한 포인트가 있을 때만 레시피 저장 (변형된 색상·두께 반영)
         if (finalPts && finalPts.length > 0) {
           redrawnActions.push({
-            type:'stroke',
-            tool:a.tool,
-            color: finalColor,
-            width: finalWidth,
-            points: finalPts
+            type:'stroke', tool:a.tool, color: finalColor, width: finalWidth, points: finalPts
           });
         }
       } else if(a.type === 'fill'){
         const finalSeed = transformPt({x:a.x, y:a.y});
-        const shiftedFillColor = pickColor(a.color);   // 채우기도 팔레트에서 뽑아 → 채우기마다 다른 색
+        const shiftedFillColor = pickColor(a.color);
         floodFillApply(cx, finalSeed.x, finalSeed.y, shiftedFillColor, a.tolerance);
         redrawnActions.push({ type:'fill', x:finalSeed.x, y:finalSeed.y, color:shiftedFillColor, tolerance:a.tolerance });
       }
@@ -2094,27 +2057,23 @@
   }
 
   function makeTransformVariation(obj, st){
-    // 레시피가 없는 오브젝트(외부 이미지 등)의 대체 변주:
-    // 캔버스 회전·스케일 변환 + canvas filter 로 색상(hue/saturation) 시프트 적용
     const size = Math.max(obj.w, obj.h) + 60;
     const c = document.createElement('canvas');
     c.width = size; c.height = size;
     const cx = c.getContext('2d');
 
-    // 스타일 색상 범위 내에서 랜덤 시프트 산출
     const hueShift = rand(st.hueRange[0], st.hueRange[1]);
     const satMul   = rand(st.satRange[0], st.satRange[1]);
 
     cx.translate(size/2, size/2);
     cx.rotate(rand(-30, 30) * Math.PI/180);
-    cx.scale(rand(0.65, 1.45), rand(0.65, 1.45));
-    // hue-rotate / saturate 필터로 원본 이미지에 색상 변주 적용
+    cx.scale(rand(0.8, 1.2), rand(0.8, 1.2));
     cx.filter = `hue-rotate(${hueShift.toFixed(1)}deg) saturate(${satMul.toFixed(2)})`;
     cx.drawImage(obj.canvas, -obj.w/2, -obj.h/2, obj.w, obj.h);
     cx.filter = 'none';
 
     const bbox = getBBox(c);
-    const label = (st && st.label) ? st.label : '고각 해체';
+    const label = (st && st.label) ? st.label : '구조 변경';
     if(!bbox) return { canvas:c, recipe:null, label };
     return { canvas: cropCanvas(c, bbox), recipe:null, label };
   }
@@ -2175,17 +2134,16 @@
       added.push({ c, id: obj.id });
     }
     toast('베리에이션 전체를 표본으로 추가했습니다.');
-    // 저장은 백그라운드에서 순차 처리 (UI 블로킹 방지)
     for(const it of added){
       try { await savePatternToFolder(it.c, it.id); } catch(e){ console.error(e); }
     }
   });
 
 
-  // ================= LAYOUT INTERACTIVE COMPOSITION (RESET ON GEN) =================
+  // ================= LAYOUT INTERACTIVE COMPOSITION =================
   const compCanvas = $('compCanvas');
   const cctx = compCanvas.getContext('2d');
-  let compBg = '#0f0f12';
+  let compBg = '#f8f9fa';
 
   function paintCompBg(){
     cctx.clearRect(0,0,compCanvas.width, compCanvas.height);
@@ -2193,10 +2151,6 @@
     cctx.fillRect(0,0,compCanvas.width, compCanvas.height);
   }
 
-  // 선택된 아이템에 형태를 감싸는 후광(halo)을 그린다.
-  // 원본 캔버스를 사방으로 살짝 오프셋해서 겹쳐 그린 뒤 source-in 으로 색을 칠하면
-  // 알파 모양 그대로 확장(dilate)된 실루엣이 만들어짐. 이 실루엣을 아이템 뒤에 깔면
-  // 실제 형태 가장자리에만 컬러 아웃라인이 남는다.
   function drawShapeHalo(ctx, item, color, haloPx){
     const w = item.obj.w * item.scale;
     const h = item.obj.h * item.scale;
@@ -2206,9 +2160,8 @@
     off.height = Math.ceil(h + pad * 2);
     const octx = off.getContext('2d');
 
-    // 8방향으로 오프셋해서 그리면 알파가 haloPx만큼 팽창됨
     const r = haloPx;
-    const d = haloPx * 0.7071; // 대각선은 √2/2 로 보정
+    const d = haloPx * 0.7071;
     const offsets = [
       [-r, 0], [r, 0], [0, -r], [0, r],
       [-d, -d], [d, -d], [-d, d], [d, d]
@@ -2216,12 +2169,10 @@
     for(const [dx, dy] of offsets){
       octx.drawImage(item.obj.canvas, pad + dx, pad + dy, w, h);
     }
-    // 확장된 실루엣을 지정 색으로 덮기
     octx.globalCompositeOperation = 'source-in';
     octx.fillStyle = color;
     octx.fillRect(0, 0, off.width, off.height);
 
-    // 대상 캔버스 위에 아이템 좌표/회전으로 배치 (아이템 본체 그리기 전에 호출됨)
     ctx.save();
     ctx.translate(item.x, item.y);
     ctx.rotate(item.angle);
@@ -2229,14 +2180,11 @@
     ctx.restore();
   }
 
-  // 캔버스 좌표 (mx, my) 가 아이템의 실제 형태(알파 > 임계값) 위에 있는지 판정.
-  // 회전을 역보정 → 이미지 로컬 좌표 → 원본 오브젝트 캔버스의 픽셀 알파를 샘플.
   function itemHitTest(item, mx, my){
     const dx = mx - item.x;
     const dy = my - item.y;
     const cs = Math.cos(item.angle);
     const sn = Math.sin(item.angle);
-    // R(-angle) 을 (dx, dy) 에 적용
     const lx =  dx * cs + dy * sn;
     const ly = -dx * sn + dy * cs;
     const w = item.obj.w * item.scale;
@@ -2247,13 +2195,11 @@
     const sx = Math.floor(imgX / item.scale);
     const sy = Math.floor(imgY / item.scale);
     if(sx < 0 || sy < 0 || sx >= item.obj.w || sy >= item.obj.h) return false;
-    // 오브젝트 별로 알파 데이터 캐시 (1회만 getImageData)
     if(!item.obj._alphaData){
       try {
         const octx = item.obj.canvas.getContext('2d');
         item.obj._alphaData = octx.getImageData(0, 0, item.obj.w, item.obj.h).data;
       } catch(e){
-        // 크로스 오리진 등으로 샘플 불가 시, 사각형 영역 안이면 히트로 인정 (안전한 폴백)
         return true;
       }
     }
@@ -2267,10 +2213,8 @@
       const w = item.obj.w * item.scale;
       const h = item.obj.h * item.scale;
 
-      // 선택된 아이템: 형태 그대로의 후광을 먼저 깔고 → 그 위에 오브젝트 본체를 그림
-      // → 후광의 내부는 오브젝트에 가려지고 가장자리만 남아 실제 형태 아웃라인이 됨.
       if (idx === selectedItemIdx) {
-        drawShapeHalo(cctx, item, '#ff6a4d', 7);
+        drawShapeHalo(cctx, item, '#ff5555', 7);
       }
 
       cctx.save();
@@ -2288,7 +2232,6 @@
     const mx = (e.clientX - rect.left) * scaleX;
     const my = (e.clientY - rect.top) * scaleY;
 
-    // 위에 있는 레이어부터 검사 (뒤에서 앞 순서), 실제 픽셀 알파로 판정
     let foundIdx = -1;
     for (let i = placedItems.length - 1; i >= 0; i--) {
       if (itemHitTest(placedItems[i], mx, my)) {
@@ -2383,14 +2326,12 @@
     toast('선택한 요소가 삭제되었습니다.');
   });
 
-  // 버튼 유입 연산 시 완벽한 기존 이력 초기화 후 재생성 처리
   $('genCompBtn').addEventListener('click', () => {
     if(objects.length === 0){
       toast('먼저 표본을 하나 이상 등록해주세요.');
       return;
     }
     
-    // 요구사항: 기존 배치 전면 클리어 리셋
     placedItems.length = 0; 
     selectedItemIdx = null;
     $('compItemEditor').hidden = true;
@@ -2408,7 +2349,6 @@
       const w = obj.w * scale, h = obj.h * scale;
       const r = 0.5 * Math.sqrt(w*w + h*h); 
 
-      // 무제한 자유도 오버랩 위치 매핑
       const x = rand(r * 0.2, W - r * 0.2);
       const y = rand(r * 0.2, H - r * 0.2);
       const angle = rand(0, Math.PI * 2);
