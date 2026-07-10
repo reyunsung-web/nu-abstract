@@ -397,24 +397,16 @@
     animation: loginPop 0.4s cubic-bezier(0.2,0.8,0.2,1);
   }
   @keyframes loginPop { from { opacity:0; transform: scale(0.94) translateY(8px);} to {opacity:1; transform:none;} }
-  .login-logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin: 0 0 4px; }
-  .login-sub { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); margin: 0 0 26px; }
-  .login-choices { display: flex; flex-direction: column; gap: 12px; }
+  .login-logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin: 0 0 26px; }
+  .login-choices { display: flex; flex-direction: column; gap: 10px; }
   .login-choice {
-    display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
-    padding: 16px 18px; border-radius: 14px; border: 1px solid var(--border);
+    width: 100%; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--border);
     background: var(--panel); cursor: pointer; transition: all 0.18s; font-family: var(--font-sans);
+    font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: 0.2px;
   }
   .login-choice:hover { border-color: var(--ink); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
-  .login-choice .lc-icon {
-    width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; font-size: 20px;
-    background: var(--panel-alt); border: 1px solid var(--border-soft);
-  }
-  .login-choice.master-choice .lc-icon { background: var(--ink); color: #fff; border-color: var(--ink); }
-  .lc-text { display: flex; flex-direction: column; gap: 2px; }
-  .lc-text .lc-title { font-size: 15px; font-weight: 600; color: var(--ink); }
-  .lc-text .lc-desc { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); }
+  .login-choice.master-choice { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .login-choice.master-choice:hover { background: var(--accent-dim); }
   .login-pass { margin-top: 22px; display: none; flex-direction: column; gap: 12px; }
   .login-pass.show { display: flex; animation: loginPop 0.3s ease; }
   .login-pass input {
@@ -444,7 +436,11 @@
   .mgr-node:hover { border-color: var(--ink); }
   .mgr-node.dragging { opacity: 0.4; }
   .mgr-node.drop-hot { border-color: var(--ink); background: var(--panel-alt); box-shadow: 0 0 0 2px var(--ink); }
-  .mgr-node .node-icon { font-size: 30px; line-height: 1; }
+  .mgr-node .node-icon {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+    color: var(--ink); background: var(--panel-alt); border: 1px solid var(--border-soft);
+    border-radius: 6px; padding: 18px 10px; width: 100%; box-sizing: border-box;
+  }
   .mgr-node .node-thumb { width: 64px; height: 64px; object-fit: contain; image-rendering: pixelated; border-radius: 4px; }
   .mgr-node .node-name {
     font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim);
@@ -471,22 +467,9 @@
 <div class="login-overlay" id="loginOverlay">
   <div class="login-card">
     <h1 class="login-logo">NU-LAYER</h1>
-    <p class="login-sub">Choose how you'd like to enter</p>
     <div class="login-choices">
-      <button class="login-choice" id="chooseGuest">
-        <div class="lc-icon">👤</div>
-        <div class="lc-text">
-          <span class="lc-title">Guest</span>
-          <span class="lc-desc">Draw & save · tagged as GUEST</span>
-        </div>
-      </button>
-      <button class="login-choice master-choice" id="chooseMaster">
-        <div class="lc-icon">🔑</div>
-        <div class="lc-text">
-          <span class="lc-title">Master</span>
-          <span class="lc-desc">Full access · delete & manage archive</span>
-        </div>
-      </button>
+      <button class="login-choice" id="chooseGuest">Guest</button>
+      <button class="login-choice master-choice" id="chooseMaster">Master</button>
     </div>
     <div class="login-pass" id="loginPass">
       <input type="password" id="masterPass" maxlength="4" inputmode="numeric" placeholder="••••" autocomplete="off">
@@ -520,7 +503,7 @@
         <button class="link-btn accent" id="connectGhBtn">CONFIG</button>
       </div>
       <a class="archive-link" href="archive.html" target="_blank">ARCHIVE →</a>
-      <button class="link-btn accent" id="openMgrBtn" style="display:none; font-family:var(--font-mono); font-size:11px; padding:8px 12px; border-radius:8px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; font-weight:600;">🗂 보관함 정리</button>
+      <button class="link-btn accent" id="openMgrBtn" style="display:none; font-family:var(--font-mono); font-size:11px; padding:8px 12px; border-radius:8px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; font-weight:600;">보관함 정리</button>
       <div class="role-chip" id="roleChip">
         <span class="role-badge" id="roleBadge">GUEST</span>
         <span class="role-name" id="roleName">Guest</span>
@@ -661,7 +644,7 @@
 
       <div class="variation-block" id="variationBlock" hidden>
         <div class="panel-head-sub"><h3>VARIATION — <span id="varTargetLabel"></span></h3></div>
-        <p class="hint-note">Applies structural warp and color shifts without layer duplication or anti-aliasing fuzziness.</p>
+        <p class="hint-note">Applies structural warp and varied color shifts to lines and fills, keeping crisp pixels.</p>
         <div class="variations-grid" id="variationsGrid"></div>
         <div class="variation-actions">
           <button class="btn btn-ghost" id="regenVarBtn">REGENERATE</button>
@@ -799,7 +782,7 @@
     <h2>보관함 정리 · ARCHIVE MANAGER</h2>
     <p class="hint">Drag a file onto a folder to move it in · drag onto “.. UP” to move out · double-click a folder to open. Create/delete folders and delete files below.</p>
     <div class="mgr-toolbar">
-      <div class="mgr-crumbs" id="mgrCrumbs">📁 <b>gallery</b></div>
+      <div class="mgr-crumbs" id="mgrCrumbs"><b>gallery</b></div>
       <button class="btn btn-sm" id="mgrNewFolder">+ NEW FOLDER</button>
       <button class="btn btn-sm btn-ghost" id="mgrRefresh">↻ REFRESH</button>
     </div>
@@ -1624,38 +1607,46 @@
   }
 
   async function mgrList(path){
-    const url = `${ghApiBase()}/contents/${encodeURI(path)}?ref=${encodeURIComponent(ghConfig.branch || 'main')}`;
-    const res = await fetch(url, { headers: ghHeaders() });
+    const url = `${ghApiBase()}/contents/${encodeURI(path)}?ref=${encodeURIComponent(ghConfig.branch || 'main')}&t=${Date.now()}`;
+    const res = await fetch(url, { headers: ghHeaders(), cache: 'no-store' });
     if(res.status === 404) return [];
     if(!res.ok){ const e = await res.json().catch(()=>({})); throw new Error(`API ${res.status}: ${e.message||res.statusText}`); }
     const items = await res.json();
     return Array.isArray(items) ? items : [];
   }
 
+  async function mgrGetSha(path){
+    const url = `${ghApiBase()}/contents/${encodeURI(path)}?ref=${encodeURIComponent(ghConfig.branch||'main')}&t=${Date.now()}`;
+    const res = await fetch(url, { headers: ghHeaders(), cache: 'no-store' });
+    if(!res.ok) return null;
+    const j = await res.json().catch(()=>null);
+    return j && j.sha ? j.sha : null;
+  }
+
   async function mgrPutFile(path, base64Content, message){
     // Check if file exists to get sha (for overwrite)
-    let sha = null;
-    try {
-      const info = await fetch(`${ghApiBase()}/contents/${encodeURI(path)}?ref=${encodeURIComponent(ghConfig.branch||'main')}`, { headers: ghHeaders() });
-      if(info.ok){ const j = await info.json(); if(j && j.sha) sha = j.sha; }
-    } catch(e){}
+    const sha = await mgrGetSha(path);
     const body = { message, content: base64Content, branch: ghConfig.branch || 'main' };
     if(sha) body.sha = sha;
-    const res = await fetch(`${ghApiBase()}/contents/${encodeURI(path)}`, { method:'PUT', headers: ghHeaders(), body: JSON.stringify(body) });
+    const res = await fetch(`${ghApiBase()}/contents/${encodeURI(path)}`, { method:'PUT', headers: ghHeaders(), body: JSON.stringify(body), cache:'no-store' });
     if(!res.ok){ const e = await res.json().catch(()=>({})); throw new Error(`PUT ${res.status}: ${e.message||res.statusText}`); }
     return res.json();
   }
 
   async function mgrDeleteFile(path, sha, message){
-    const body = { message, sha, branch: ghConfig.branch || 'main' };
-    const res = await fetch(`${ghApiBase()}/contents/${encodeURI(path)}`, { method:'DELETE', headers: ghHeaders(), body: JSON.stringify(body) });
+    // Always resolve a fresh sha right before deleting to avoid stale-cache 409/422 failures.
+    const freshSha = await mgrGetSha(path);
+    const useSha = freshSha || sha;
+    if(!useSha) throw new Error('File not found (already deleted?)');
+    const body = { message, sha: useSha, branch: ghConfig.branch || 'main' };
+    const res = await fetch(`${ghApiBase()}/contents/${encodeURI(path)}`, { method:'DELETE', headers: ghHeaders(), body: JSON.stringify(body), cache:'no-store' });
     if(!res.ok){ const e = await res.json().catch(()=>({})); throw new Error(`DELETE ${res.status}: ${e.message||res.statusText}`); }
     return res.json();
   }
 
   async function mgrGetBase64(item){
     // item.download_url or fetch blob via contents
-    const res = await fetch(item.download_url);
+    const res = await fetch(item.download_url, { cache:'no-store' });
     const blob = await res.blob();
     return await blobToBase64(blob);
   }
@@ -1688,7 +1679,7 @@
       span.style.cursor = 'pointer';
       span.innerHTML = (i === parts.length-1) ? `<b>${p}</b>` : p;
       span.addEventListener('click', ()=>{ mgrCurrentPath = path; refreshMgr(); });
-      crumb.appendChild(document.createTextNode(i? ' / ' : '📁 '));
+      crumb.appendChild(document.createTextNode(i? ' / ' : ''));
       crumb.appendChild(span);
     });
   }
@@ -1707,7 +1698,7 @@
     if(mgrCurrentPath !== mgrRootPath){
       const up = document.createElement('div');
       up.className = 'mgr-node';
-      up.innerHTML = `<div class="node-icon">⬆️</div><div class="node-name">.. UP</div>`;
+      up.innerHTML = `<div class="node-icon">↑</div><div class="node-name">.. UP</div>`;
       up.addEventListener('dblclick', goUp);
       up.addEventListener('click', goUp);
       addDropTarget(up, parentPath(mgrCurrentPath));
@@ -1724,7 +1715,7 @@
     dirs.forEach(d=>{
       const node = document.createElement('div');
       node.className = 'mgr-node';
-      node.innerHTML = `<button class="node-del" title="Delete folder">×</button><div class="node-icon">📁</div><div class="node-name">${d.name}</div>`;
+      node.innerHTML = `<button class="node-del" title="Delete folder">×</button><div class="node-icon">FOLDER</div><div class="node-name">${d.name}</div>`;
       node.addEventListener('dblclick', ()=>{ mgrCurrentPath = d.path; refreshMgr(); });
       node.querySelector('.node-del').addEventListener('click', (ev)=>{ ev.stopPropagation(); deleteFolder(d.path, d.name); });
       addDropTarget(node, d.path);
@@ -1793,8 +1784,10 @@
     toast(`Deleting ${f.name}…`);
     try {
       await mgrDeleteFile(f.path, f.sha, `Delete ${f.name}`);
+      loadedFilenames.delete(f.name);
       toast('File deleted.');
-      refreshMgr();
+      await new Promise(r=>setTimeout(r, 500)); // let GitHub tree settle
+      await refreshMgr();
     } catch(e){ console.error(e); toast('Delete failed: ' + e.message); }
   }
 
@@ -1804,7 +1797,8 @@
     try {
       await deleteFolderRecursive(path);
       toast('Folder deleted.');
-      refreshMgr();
+      await new Promise(r=>setTimeout(r, 500));
+      await refreshMgr();
     } catch(e){ console.error(e); toast('Folder delete failed: ' + e.message); }
   }
   async function deleteFolderRecursive(path){
@@ -2461,6 +2455,62 @@
     return (p)=> p;
   }
 
+  // ---- Variation color shifting: rotate hue of lines and fills ----
+  function rgbToHsl(r,g,b){
+    r/=255; g/=255; b/=255;
+    const max=Math.max(r,g,b), min=Math.min(r,g,b);
+    let h,s,l=(max+min)/2;
+    if(max===min){ h=s=0; }
+    else {
+      const d=max-min;
+      s = l>0.5 ? d/(2-max-min) : d/(max+min);
+      switch(max){
+        case r: h=(g-b)/d + (g<b?6:0); break;
+        case g: h=(b-r)/d + 2; break;
+        default: h=(r-g)/d + 4;
+      }
+      h/=6;
+    }
+    return [h*360, s, l];
+  }
+  function hslToRgb(h,s,l){
+    h/=360;
+    let r,g,b;
+    if(s===0){ r=g=b=l; }
+    else {
+      const hue2rgb=(p,q,t)=>{
+        if(t<0)t+=1; if(t>1)t-=1;
+        if(t<1/6)return p+(q-p)*6*t;
+        if(t<1/2)return q;
+        if(t<2/3)return p+(q-p)*(2/3-t)*6;
+        return p;
+      };
+      const q = l<0.5 ? l*(1+s) : l+s-l*s;
+      const p = 2*l-q;
+      r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
+    }
+    return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+  }
+  // shift: {hue: degrees, sat: multiplier, light: delta}
+  function shiftColor(hex, shift){
+    const [r,g,b] = hexToRgb(hex);
+    let [h,s,l] = rgbToHsl(r,g,b);
+    // near-grayscale colors (very low saturation) get a small injected saturation so they can take on color
+    if(s < 0.08) s = 0.5;
+    h = (h + shift.hue + 360) % 360;
+    s = Math.max(0, Math.min(1, s * shift.sat));
+    l = Math.max(0.08, Math.min(0.92, l + shift.light));
+    const [nr,ng,nb] = hslToRgb(h,s,l);
+    return rgbToHex(nr,ng,nb);
+  }
+  function randColorShift(){
+    return {
+      hue: rand(0, 360),
+      sat: rand(0.75, 1.25),
+      light: rand(-0.12, 0.12)
+    };
+  }
+
   const VAR_STYLES = [
     { label:'ORGANIC WAVE', warp:'wave', waveAmp:[7, 15] },
     { label:'RADIAL BULGE', warp:'bulge', bulgeRange:[0.15, 0.32] },
@@ -2494,23 +2544,27 @@
       }
 
       const redrawnActions = [];
+      const colorShift = randColorShift();
       obj.recipe.forEach(a=>{
         if(a.type === 'stroke'){
           let pts = a.points;
           let finalPts = pts.map(transformPt);
-          
+          const isEraser = a.tool === 'eraser';
+          const newColor = isEraser ? a.color : shiftColor(a.color, colorShift);
+
           if(finalPts.length===1){
-            drawAliasedLine(cx, finalPts[0].x, finalPts[0].y, finalPts[0].x, finalPts[0].y, a.width, a.color, a.tool==='eraser');
+            drawAliasedLine(cx, finalPts[0].x, finalPts[0].y, finalPts[0].x, finalPts[0].y, a.width, newColor, isEraser);
           } else {
             for(let i=1; i<finalPts.length; i++){
-              drawAliasedLine(cx, finalPts[i-1].x, finalPts[i-1].y, finalPts[i].x, finalPts[i].y, a.width, a.color, a.tool==='eraser');
+              drawAliasedLine(cx, finalPts[i-1].x, finalPts[i-1].y, finalPts[i].x, finalPts[i].y, a.width, newColor, isEraser);
             }
           }
-          redrawnActions.push({ type:'stroke', tool:a.tool, color:a.color, width:a.width, points: finalPts });
+          redrawnActions.push({ type:'stroke', tool:a.tool, color:newColor, width:a.width, points: finalPts });
         } else if(a.type === 'fill'){
           const finalSeed = transformPt({x:a.x, y:a.y});
-          floodFillApply(cx, finalSeed.x, finalSeed.y, a.color, a.tolerance);
-          redrawnActions.push({ type:'fill', x:finalSeed.x, y:finalSeed.y, color:a.color, tolerance:a.tolerance });
+          const newColor = shiftColor(a.color, colorShift);
+          floodFillApply(cx, finalSeed.x, finalSeed.y, newColor, a.tolerance);
+          redrawnActions.push({ type:'fill', x:finalSeed.x, y:finalSeed.y, color:newColor, tolerance:a.tolerance });
         }
       });
       
