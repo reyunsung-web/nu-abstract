@@ -2135,11 +2135,15 @@
   function renderAll(){
     dctx.clearRect(0,0,drawCanvas.width, drawCanvas.height);
     actions.forEach(a=>{
-      if(a.type==='stroke') renderStrokeFull(dctx, a);
-      else if(a.type==='fill') floodFillApply(dctx, a.x, a.y, a.color, a.tolerance);
-      else if(a.type==='image' && a.img){
-        dctx.imageSmoothingEnabled = false;
-        dctx.drawImage(a.img, a.x, a.y, a.w, a.h);
+      try {
+        if(a.type==='stroke') renderStrokeFull(dctx, a);
+        else if(a.type==='fill') floodFillApply(dctx, a.x, a.y, a.color, a.tolerance);
+        else if(a.type==='image' && a.img && a.w > 0 && a.h > 0){
+          dctx.imageSmoothingEnabled = false;
+          dctx.drawImage(a.img, a.x, a.y, a.w, a.h);
+        }
+      } catch(err){
+        console.error('renderAll: skipped an action due to error', err, a);
       }
     });
     if(selectedStrokeId != null){
@@ -2375,7 +2379,10 @@
   $('clearDrawBtn').addEventListener('click', ()=>{
     actions.length = 0;
     redoStack.length = 0;
-    clearStrokeSelection();
+    selectedStrokeId = null;
+    $('strokeEditor').hidden = true;
+    dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    renderAll();
     toast('Canvas reset.');
   });
 
@@ -2526,38 +2533,52 @@
   // Vector samples (with a recipe) load as fully editable strokes/fills, centered.
   // Raster-only samples load as an image layer, centered.
   function loadSampleToDrawing(obj){
-    const cw = drawCanvas.width, ch = drawCanvas.height;
-    const offX = Math.round((cw - obj.w) / 2);
-    const offY = Math.round((ch - obj.h) / 2);
+    if(!obj){ toast('Sample not found.'); return; }
+    try {
+      const cw = drawCanvas.width, ch = drawCanvas.height;
+      const ow = obj.w || (obj.canvas ? obj.canvas.width : 0);
+      const oh = obj.h || (obj.canvas ? obj.canvas.height : 0);
+      const offX = Math.round((cw - ow) / 2);
+      const offY = Math.round((ch - oh) / 2);
 
-    if(obj.recipe && obj.recipe.length > 0){
-      obj.recipe.forEach(a=>{
-        if(a.type === 'stroke'){
-          actions.push({
-            type:'stroke', id:++actionCounter, tool:a.tool, color:a.color, width:a.width,
-            points: a.points.map(p=>({ x:p.x + offX, y:p.y + offY }))
-          });
-        } else if(a.type === 'fill'){
-          actions.push({
-            type:'fill', id:++actionCounter, x:a.x + offX, y:a.y + offY,
-            color:a.color, tolerance:a.tolerance
-          });
+      if(obj.recipe && obj.recipe.length > 0){
+        obj.recipe.forEach(a=>{
+          if(a.type === 'stroke'){
+            actions.push({
+              type:'stroke', id:++actionCounter, tool:a.tool, color:a.color, width:a.width,
+              points: a.points.map(p=>({ x:p.x + offX, y:p.y + offY }))
+            });
+          } else if(a.type === 'fill'){
+            actions.push({
+              type:'fill', id:++actionCounter, x:a.x + offX, y:a.y + offY,
+              color:a.color, tolerance:a.tolerance
+            });
+          }
+        });
+        redoStack.length = 0;
+        clearStrokeSelection();
+        renderAll();
+        toast(`Loaded OBJ-${String(obj.id).padStart(2,'0')} to drawing (editable).`);
+      } else {
+        // Raster sample: stamp a fresh copy of its pixels as an image layer.
+        if(!obj.canvas || ow === 0 || oh === 0){
+          toast('This sample has no image data to load.');
+          return;
         }
-      });
-      redoStack.length = 0;
-      clearStrokeSelection();
-      renderAll();
-      toast(`Loaded OBJ-${String(obj.id).padStart(2,'0')} to drawing (editable).`);
-    } else {
-      // Raster sample: stamp its pixels as an image layer
-      const img = document.createElement('canvas');
-      img.width = obj.w; img.height = obj.h;
-      img.getContext('2d').drawImage(obj.canvas, 0, 0);
-      actions.push({ type:'image', id:++actionCounter, img, x:offX, y:offY, w:obj.w, h:obj.h });
-      redoStack.length = 0;
-      clearStrokeSelection();
-      renderAll();
-      toast(`Loaded OBJ-${String(obj.id).padStart(2,'0')} to drawing (image).`);
+        const img = document.createElement('canvas');
+        img.width = ow; img.height = oh;
+        const ictx = img.getContext('2d');
+        ictx.imageSmoothingEnabled = false;
+        ictx.drawImage(obj.canvas, 0, 0);
+        actions.push({ type:'image', id:++actionCounter, img, x:offX, y:offY, w:ow, h:oh });
+        redoStack.length = 0;
+        clearStrokeSelection();
+        renderAll();
+        toast(`Loaded OBJ-${String(obj.id).padStart(2,'0')} to drawing (image).`);
+      }
+    } catch(err){
+      console.error('loadSampleToDrawing failed:', err);
+      toast('Load to drawing failed: ' + (err.message || err));
     }
   }
 
