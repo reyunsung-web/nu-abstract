@@ -766,6 +766,7 @@
       <div class="replay-row">
         <button class="btn" id="replayBtn" style="flex:1;" title="Replay the drawing process (trace layer hidden)">▶ REPLAY</button>
         <button class="btn" id="replaySaveBtn" style="flex:1;" title="Replay and save as a .webm video">⏺ SAVE REPLAY</button>
+        <button class="btn" id="exportSvgBtn" style="flex:1;" title="Export the visible drawing as a vector SVG (final lines only — erasers baked in)">⬡ EXPORT SVG</button>
         <select id="replaySpeed" title="Replay speed" style="font-family:var(--font-mono); font-size:12px; padding:0 8px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--ink); cursor:pointer;">
           <option value="0.25">0.25x</option>
           <option value="0.5">0.5x</option>
@@ -3677,6 +3678,183 @@
     // layerRecolor & markers: no coordinates to shift
   }
 
+  // ==================== EXPORT SVG ====================
+  // True vector export: strokes become smooth quadratic paths (mirroring the
+  // canvas renderer exactly), fills become traced outlines of their frozen
+  // masks (with holes, fill-rule evenodd). Layer recolors and erasers are
+  // baked first, so the file contains ONLY the final visible geometry.
+  function traceMaskToSvgPath(rle, mw, mh, ox, oy){
+    const mask = decodeMask(rle, mw*mh);
+    const filled = (x,y)=> x>=0 && x<mw && y>=0 && y<mh && mask[y*mw+x] > 0;
+    // Directed unit edges with the region on the RIGHT of travel.
+    const edges = new Map();
+    const addE = (sx,sy,ex,ey)=>{
+      const k = sx+','+sy;
+      let arr = edges.get(k);
+      if(!arr){ arr = []; edges.set(k, arr); }
+      arr.push({sx,sy,ex,ey});
+    };
+    for(let y=0; y<mh; y++){
+      for(let x=0; x<mw; x++){
+        if(!filled(x,y)) continue;
+        if(!filled(x,y-1)) addE(x,   y,   x+1, y);   // top    → +x
+        if(!filled(x,y+1)) addE(x+1, y+1, x,   y+1); // bottom → -x
+        if(!filled(x-1,y)) addE(x,   y+1, x,   y);   // left   → -y
+        if(!filled(x+1,y)) addE(x+1, y,   x+1, y+1); // right  → +y
+      }
+    }
+    const takeFrom = (k, pdx, pdy)=>{
+      const arr = edges.get(k);
+      if(!arr || !arr.length) return null;
+      if(arr.length === 1) return arr.pop();
+      // Saddle point: prefer the sharpest right turn to keep loops separate.
+      let best = 0, bestScore = -1;
+      for(let i=0; i<arr.length; i++){
+        const e = arr[i], dx = e.ex-e.sx, dy = e.ey-e.sy;
+        const cross = pdx*dy - pdy*dx;        // >0 = right turn (y-down)
+        const dot = pdx*dx + pdy*dy;
+        const score = cross > 0 ? 2 : (dot > 0 ? 1 : 0);
+        if(score > bestScore){ bestScore = score; best = i; }
+      }
+      return arr.splice(best, 1)[0];
+    };
+    let d = '';
+    for(const k0 of Array.from(edges.keys())){
+      const arr0 = edges.get(k0);
+      while(arr0 && arr0.length){
+        const first = arr0.pop();
+        const loop = [[first.sx, first.sy]];
+        let cur = first;
+        let guard = mw*mh*4;
+        while(guard-- > 0){
+          loop.push([cur.ex, cur.ey]);
+          if(cur.ex === first.sx && cur.ey === first.sy) break;
+          const nxt = takeFrom(cur.ex+','+cur.ey, cur.ex-cur.sx, cur.ey-cur.sy);
+          if(!nxt) break;
+          cur = nxt;
+        }
+        // drop collinear midpoints (all edges are axis-aligned)
+        const simp = [];
+        for(let i=0; i<loop.length-1; i++){
+          const p = loop[i], prev = simp[simp.length-1], nxt = loop[i+1];
+          if(prev && ((prev[0]===p[0] && p[0]===nxt[0]) || (prev[1]===p[1] && p[1]===nxt[1]))) continue;
+          simp.push(p);
+        }
+        if(simp.length >= 3){
+          d += 'M' + simp.map(p=>(p[0]+ox)+' '+(p[1]+oy)).join('L') + 'Z';
+        }
+      }
+    }
+    return d;
+  }
+
+  function strokeToSvgEl(a){
+    const f = n => Math.round(n*100)/100;
+    const pts = a.points;
+    if(pts.length === 1){
+      return `<circle cx="${f(pts[0].x)}" cy="${f(pts[0].y)}" r="${f(a.width/2)}" fill="${a.color}"/>`;
+    }
+    let d = `M${f(pts[0].x)} ${f(pts[0].y)}`;
+    if(pts.length === 2){
+      d += `L${f(pts[1].x)} ${f(pts[1].y)}`;
+    } else {
+      for(let i=1; i<pts.length-1; i++){
+        const mx = (pts[i].x + pts[i+1].x) / 2;
+        const my = (pts[i].y + pts[i+1].y) / 2;
+        d += `Q${f(pts[i].x)} ${f(pts[i].y)} ${f(mx)} ${f(my)}`;
+      }
+      d += `L${f(pts[pts.length-1].x)} ${f(pts[pts.length-1].y)}`;
+    }
+    return `<path d="${d}" fill="none" stroke="${a.color}" stroke-width="${f(a.width)}"` +
+           ` stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+
+  // Carve leftover eraser strokes (legacy fill layers) out of a fill mask.
+  function eraseMaskByStrokes(mask, mw, mh, ox, oy, erasers){
+    const t = document.createElement('canvas');
+    t.width = mw; t.height = mh;
+    const tc = t.getContext('2d', { willReadFrequently: true });
+    tc.save();
+    tc.translate(-ox, -oy); // mask grid → canvas coords
+    for(const e of erasers) drawSmoothPathOn(tc, e.points, e.width, '#000');
+    tc.restore();
+    const d = tc.getImageData(0, 0, mw, mh).data;
+    for(let vi=0; vi<mw*mh; vi++){
+      if(mask[vi] && d[vi*4+3] > 128) mask[vi] = 0;
+    }
+    return mask;
+  }
+
+  function exportSvg(){
+    if(replaying){ toast('Replaying — please wait.'); return; }
+    // Working copy: bake layer recolors, then bake erasers into geometry.
+    const baked = [];
+    for(const a of actions){
+      if(a.type === 'layerRecolor'){
+        for(const b of baked){
+          if(b.layer === a.layer && (b.type === 'stroke' || b.type === 'fill')) b.color = a.color;
+        }
+      } else if(a.type === 'stroke' || a.type === 'fill' || a.type === 'image'){
+        baked.push(a.type === 'stroke' ? { ...a, points: a.points.slice() } : { ...a });
+      }
+    }
+    const list = bakeErasers(baked, x => x.layer);
+
+    const W = drawCanvas.width, H = drawCanvas.height;
+    let skippedLegacy = 0, texCount = 0;
+    const parts = [];
+    layers.forEach((l, li) => {
+      if(!l.visible) return;
+      const la = list.filter(a => a.layer === l.id);
+      if(!la.length) return;
+      const fills = la.filter(a => a.type === 'fill');
+      const strokes = la.filter(a => a.type === 'stroke' && a.tool !== 'eraser');
+      const erasers = la.filter(a => a.type === 'stroke' && a.tool === 'eraser');
+      const images = la.filter(a => a.type === 'image');
+      let g = `<g id="layer-${li}-${(l.name||'').replace(/[^A-Za-z0-9_-]/g,'_')}">`;
+      for(const im of images){
+        try {
+          const t = document.createElement('canvas');
+          t.width = Math.max(1, Math.round(im.w));
+          t.height = Math.max(1, Math.round(im.h));
+          t.getContext('2d').drawImage(im.img, 0, 0, t.width, t.height);
+          g += `<image x="${im.x}" y="${im.y}" width="${im.w}" height="${im.h}" href="${t.toDataURL('image/png')}"/>`;
+        } catch(err){ /* tainted image → skip */ }
+      }
+      // Fills first (they render UNDER same-layer strokes), then strokes.
+      for(const fa of fills){
+        if(!fa.m){ skippedLegacy++; continue; }
+        const mw = fa.mw || W, mh = fa.mh || H;
+        let mask = decodeMask(fa.m, mw*mh);
+        if(erasers.length) mask = eraseMaskByStrokes(mask, mw, mh, Math.round(fa.ox||0), Math.round(fa.oy||0), erasers);
+        const d = traceMaskToSvgPath(encodeMask(mask), mw, mh, Math.round(fa.ox||0), Math.round(fa.oy||0));
+        if(d) g += `<path d="${d}" fill="${fa.color}" fill-rule="evenodd"/>`;
+      }
+      for(const sa of strokes){
+        if(sa.texture && sa.texture !== 'smooth') texCount++;
+        g += strokeToSvgEl(sa);
+      }
+      g += '</g>';
+      parts.push(g);
+    });
+
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">\n` +
+      parts.join('\n') + `\n</svg>`;
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const aEl = document.createElement('a');
+    aEl.href = url;
+    aEl.download = 'drawing-' + Date.now() + '.svg';
+    aEl.click();
+    setTimeout(()=> URL.revokeObjectURL(url), 3000);
+    let msg = 'SVG exported — final visible geometry only.';
+    if(texCount) msg += ` ${texCount} textured stroke(s) exported as smooth paths.`;
+    if(skippedLegacy) msg += ` ${skippedLegacy} legacy fill(s) had no vector data and were skipped.`;
+    toast(msg);
+  }
+  $('exportSvgBtn').addEventListener('click', exportSvg);
+
   // ==================== ERASER BAKING (final-image geometry) ====================
   // Rewrites a list of actions so strokes carry only the segments that
   // SURVIVE the eraser strokes recorded after them on the same layer, then
@@ -4893,6 +5071,17 @@
   // cropped and pushed back into the object, so the composition (and the
   // sample thumbnail) updates in real time. The link ends on RESET,
   // REGISTER, or when another sample/element is opened.
+  function detachItemObject(item){
+    const src = item.obj;
+    if(src._detached) return src;
+    const c = document.createElement('canvas');
+    c.width = src.w; c.height = src.h;
+    c.getContext('2d').drawImage(src.canvas, 0, 0);
+    item.obj = { id: src.id, canvas: c, w: src.w, h: src.h,
+                 recipe: src.recipe, filename: src.filename, _detached: true };
+    return item.obj;
+  }
+
   function beginLiveEdit(obj){
     if(!obj) return;
     if(replaying){ toast('Replaying — please wait.'); return; }
@@ -4960,7 +5149,11 @@
     // with the live link. Drags keep working purely as move/arrange.
     if(compDownPos && Math.hypot(e.clientX - compDownPos.x, e.clientY - compDownPos.y) < 5 &&
        selectedItemIdx !== null && placedItems[selectedItemIdx]){
-      beginLiveEdit(placedItems[selectedItemIdx].obj);
+      // DETACH this placed instance before editing: duplicates of the same
+      // sample share one source object, so recoloring/editing would change
+      // every copy on the composition. Give the selected element its own
+      // private object — only IT follows the drawing edits.
+      beginLiveEdit(detachItemObject(placedItems[selectedItemIdx]));
     }
     compDownPos = null;
     if (isDraggingItem) {

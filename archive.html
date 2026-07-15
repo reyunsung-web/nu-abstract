@@ -93,7 +93,7 @@
   .collage-item:active { cursor: grabbing; }
   .collage-item.enter { opacity: 1; }
   .collage-item.selected {
-    z-index: 50; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1));
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1));
   }
   .collage-item img {
     display: block; width: 100%; height: 100%; object-fit: contain;
@@ -193,6 +193,10 @@
   <div class="fm-row">
     <span>Rotate</span>
     <input type="range" id="fmRotate" min="-180" max="180" step="1">
+  </div>
+  <div class="fm-btns">
+    <button class="btn-fm-close" id="fmUp" title="Bring this object one step forward">▲ UP</button>
+    <button class="btn-fm-close" id="fmDown" title="Send this object one step back">▼ DOWN</button>
   </div>
   <div class="fm-btns">
     <button class="btn-fm-del" id="fmDelete">Delete</button>
@@ -426,6 +430,7 @@
         height: size
       };
       itemsData.push(obj);
+      el.style.zIndex = 5 + i; // distinct stacking per item (stable order)
       updateTransform(obj);
       el.style.width = size + 'px';
       el.style.height = size + 'px';
@@ -551,8 +556,8 @@
       activeItemObj.el.classList.remove('selected');
     }
     activeItemObj = obj;
-    zCounter++;
-    obj.el.style.zIndex = zCounter;
+    // NOTE: selecting no longer auto-raises the item — stacking is changed
+    // only with the ▲ UP / ▼ DOWN buttons in this menu.
     obj.el.classList.add('selected');
 
     // Init float menu values
@@ -570,6 +575,20 @@
     floatMenu.style.left = centerX + 'px';
     floatMenu.style.top = topY + 'px';
   }
+
+  const zOf = o => parseInt(o.el.style.zIndex, 10) || 5;
+  function stepZ(dir){
+    if(!activeItemObj) return;
+    const sorted = itemsData.slice().sort((a,b)=> zOf(a) - zOf(b));
+    const i = sorted.indexOf(activeItemObj);
+    const j = i + dir;
+    if(j < 0 || j >= sorted.length) return; // already at the top/bottom
+    const za = zOf(activeItemObj), zb = zOf(sorted[j]);
+    activeItemObj.el.style.zIndex = zb;
+    sorted[j].el.style.zIndex = za;
+  }
+  $('fmUp').addEventListener('click', ()=> stepZ(1));
+  $('fmDown').addEventListener('click', ()=> stepZ(-1));
 
   function closeMenu(){
     floatMenu.style.display = 'none';
