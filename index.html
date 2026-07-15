@@ -222,6 +222,32 @@
     font-family: var(--font-mono); font-size: 11px; color: var(--ink);
   }
   .layer-row.active { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .layer-list { max-height: 264px; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+  .layer-list::-webkit-scrollbar { width: 7px; }
+  .layer-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .layer-row.in-folder { margin-left: 14px; }
+  .layer-folder-row {
+    display: flex; align-items: center; gap: 6px; padding: 5px 6px; margin-bottom: 4px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
+    font-family: var(--font-mono); font-size: 11px; cursor: pointer; user-select: none;
+  }
+  .layer-folder-row.active { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .layer-folder-row.drag-over { outline: 2px dashed var(--ink); outline-offset: 1px; background: var(--border-soft); }
+  .layer-row.multi-sel { border-color: var(--ink); background: var(--border-soft); }
+  .layer-rename {
+    flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11px;
+    border: 1px solid var(--ink); border-radius: 5px; padding: 2px 4px; background: var(--panel); color: var(--ink);
+  }
+  .layer-ctx-menu {
+    position: fixed; z-index: 10000; min-width: 190px; padding: 4px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.16);
+  }
+  .layer-ctx-menu button {
+    display: block; width: 100%; text-align: left; padding: 7px 10px; border: 0; border-radius: 6px;
+    background: transparent; color: var(--ink); font-family: var(--font-mono); font-size: 11px; cursor: pointer;
+  }
+  .layer-ctx-menu button:hover { background: var(--border-soft); }
   .layer-row.dragging { opacity: 0.4; }
   .layer-row.drag-over { outline: 2px dashed var(--ink); outline-offset: 1px; background: var(--border-soft); }
   .layer-row .layer-eye { cursor: pointer; user-select: none; width: 18px; text-align: center; opacity: 0.9; }
@@ -1064,16 +1090,209 @@
   // ==================== LAYER PANEL ====================
   let layerDragState = null;      // pointer-drag state for layer merging
   let suppressLayerClick = false; // swallow the click that follows a drag
+  // ---- layer folders ----
+  let folders = [];               // { id, name }
+  let folderIdCounter = 0;
+  let activeFolderId = null;      // selected folder (SELECT moves it as one)
+  let selectedLayerIds = new Set(); // Shift+click multi-selection
+  // Inline rename on double-click (no prompt popups). Enter/blur commits,
+  // Escape cancels.
+  function attachInlineRename(span, getName, setName){
+    span.addEventListener('dblclick', ev=>{
+      ev.stopPropagation();
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = getName();
+      input.className = 'layer-rename';
+      input.addEventListener('pointerdown', e2=> e2.stopPropagation()); // don't start a row drag
+      let done = false;
+      const commit = ()=>{
+        if(done) return;
+        done = true;
+        const v = input.value.trim();
+        if(v) setName(v);
+        renderLayersPanel();
+      };
+      input.addEventListener('keydown', e2=>{
+        if(e2.key === 'Enter') commit();
+        if(e2.key === 'Escape'){ done = true; renderLayersPanel(); }
+      });
+      input.addEventListener('blur', commit);
+      span.replaceWith(input);
+      input.focus();
+      input.select();
+    });
+  }
+
+  // Keep folder members contiguous in the stack (anchored at the first
+  // member), so a folder always occupies one solid band of layers.
+  function normalizeFolders(){
+    const seen = new Set();
+    const out = [];
+    for(const l of layers){
+      if(seen.has(l.id)) continue;
+      if(l.folderId != null && folders.some(f=>f.id===l.folderId)){
+        for(const m of layers){
+          if(m.folderId === l.folderId && !seen.has(m.id)){ out.push(m); seen.add(m.id); }
+        }
+      } else {
+        if(l.folderId != null) l.folderId = null; // folder was dissolved
+        out.push(l); seen.add(l.id);
+      }
+    }
+    layers = out;
+  }
+
+  // ---- lightweight context menu ----
+  let layerCtxEl = null;
+  function closeLayerMenu(){ if(layerCtxEl){ layerCtxEl.remove(); layerCtxEl = null; } }
+  function showLayerMenu(x, y, items){
+    closeLayerMenu();
+    const m = document.createElement('div');
+    m.className = 'layer-ctx-menu';
+    items.forEach(it=>{
+      const b = document.createElement('button');
+      b.textContent = it.label;
+      b.addEventListener('click', ()=>{ closeLayerMenu(); it.fn(); });
+      m.appendChild(b);
+    });
+    document.body.appendChild(m);
+    const r = m.getBoundingClientRect();
+    m.style.left = Math.min(x, window.innerWidth - r.width - 8) + 'px';
+    m.style.top  = Math.min(y, window.innerHeight - r.height - 8) + 'px';
+    layerCtxEl = m;
+    setTimeout(()=> document.addEventListener('pointerdown', function h(ev){
+      if(layerCtxEl && !layerCtxEl.contains(ev.target)) closeLayerMenu();
+      document.removeEventListener('pointerdown', h);
+    }), 0);
+  }
+
+  // All folder operations are silent (no confirm dialogs) and UNDOABLE:
+  // each pushes a small marker into the history that Ctrl+Z restores from.
+  function createFolderWithLayers(ls){
+    const f = { id: ++folderIdCounter, name: 'FOLDER ' + folderIdCounter };
+    folders.push(f);
+    const members = ls.map(l=>({ l, prev: l.folderId || null }));
+    ls.forEach(l=>{ l.folderId = f.id; });
+    if(ls.length) activeLayerId = ls[ls.length-1].id;
+    activeFolderId = f.id;
+    actions.push({ type:'folderCreate', id:++actionCounter, folder:f, members });
+    redoStack.length = 0;
+    renderLayersPanel();
+    toast(ls.length ? `${f.name} created: ${ls.length} layer(s) moved in.`
+                    : `${f.name} created. Drag layers onto it.`);
+  }
+
+  function moveLayerToFolder(layerId, folderId){
+    const l = layers.find(x=>x.id===layerId);
+    const f = folders.find(x=>x.id===folderId);
+    if(!l || !f || l.folderId === f.id) return;
+    actions.push({ type:'folderMove', id:++actionCounter, l, prev: l.folderId || null, next: f.id });
+    redoStack.length = 0;
+    l.folderId = f.id;
+    renderLayersPanel();
+    toast(`${l.name} moved into ${f.name}.`);
+  }
+
+  function removeLayerFromFolder(l){
+    if(l.folderId == null) return;
+    actions.push({ type:'folderMove', id:++actionCounter, l, prev: l.folderId, next: null });
+    redoStack.length = 0;
+    l.folderId = null;
+    renderLayersPanel();
+    toast(`${l.name} moved out of the folder.`);
+  }
+
+  function dissolveFolder(fid){
+    const f = folders.find(x=>x.id===fid);
+    if(!f) return;
+    const members = layers.filter(l=>l.folderId === fid).map(l=>({ l }));
+    actions.push({ type:'folderDissolve', id:++actionCounter, folder:f, members });
+    redoStack.length = 0;
+    members.forEach(m=>{ m.l.folderId = null; });
+    folders = folders.filter(x=>x.id !== fid);
+    if(activeFolderId === fid) activeFolderId = null;
+    renderLayersPanel();
+    toast('Folder dissolved: layers kept.');
+  }
+
   function renderLayersPanel(){
+    normalizeFolders();
+    selectedLayerIds = new Set([...selectedLayerIds].filter(id => layers.some(l=>l.id===id)));
     const list = $('layerList');
     list.innerHTML = '';
-    layers.forEach(l=>{
+    const headerDone = new Set();
+
+    // right-click on empty panel space \u2192 create an empty folder
+    list.oncontextmenu = ev=>{
+      if(ev.target !== list) return;
+      ev.preventDefault();
+      showLayerMenu(ev.clientX, ev.clientY, [
+        { label: '📁 NEW FOLDER', fn: ()=> createFolderWithLayers([]) }
+      ]);
+    };
+
+    const makeFolderRow = f => {
+      const members = layers.filter(x=>x.folderId===f.id);
       const row = document.createElement('div');
-      row.className = 'layer-row' + (l.id === activeLayerId ? ' active' : '') + (l.visible ? '' : ' hidden-layer');
+      row.className = 'layer-folder-row' + (activeFolderId === f.id ? ' active' : '');
+      row.dataset.folderId = f.id;
+      row.title = 'Click to select the folder (SELECT tool moves it as one). Drop a layer here to move it in. Right-click for options.';
+      const eye = document.createElement('span');
+      eye.className = 'layer-eye';
+      const anyVisible = members.some(m=>m.visible);
+      eye.textContent = members.length === 0 ? '\u00b7' : (anyVisible ? '👁' : '\u2500');
+      eye.title = 'Toggle visibility for the whole folder';
+      eye.addEventListener('click', ev=>{
+        ev.stopPropagation();
+        const show = !members.some(m=>m.visible);
+        members.forEach(m=>{ m.visible = show; });
+        compositeLayers();
+        renderLayersPanel();
+      });
+      row.appendChild(eye);
+      const name = document.createElement('span');
+      name.className = 'layer-name';
+      name.textContent = '📁 ' + f.name;
+      name.title = 'Double-click to rename';
+      attachInlineRename(name, ()=>f.name, v=>{ f.name = v; });
+      row.appendChild(name);
+      const count = document.createElement('span');
+      count.className = 'layer-mini';
+      count.textContent = members.length + ' ly';
+      row.appendChild(count);
+      row.addEventListener('click', ()=>{
+        if(suppressLayerClick){ suppressLayerClick = false; return; }
+        if(activeFolderId === f.id) return; // keep the row alive for dblclick rename
+        activeFolderId = f.id;
+        const tops = layers.filter(x=>x.folderId===f.id);
+        if(tops.length) activeLayerId = tops[tops.length-1].id; // topmost member draws
+        renderLayersPanel();
+      });
+      row.addEventListener('contextmenu', ev=>{
+        ev.preventDefault();
+        showLayerMenu(ev.clientX, ev.clientY, [
+          { label: '\u25a3 REGISTER FOLDER AS OBJECT', fn: ()=> registerFolderAsObject(f.id) },
+          { label: '\u2b73 DISSOLVE FOLDER', fn: ()=> dissolveFolder(f.id) }
+        ]);
+      });
+      return row;
+    };
+
+    layers.forEach(l=>{
+      if(l.folderId != null && !headerDone.has(l.folderId)){
+        const f = folders.find(x=>x.id===l.folderId);
+        if(f){ list.appendChild(makeFolderRow(f)); headerDone.add(f.id); }
+      }
+      const row = document.createElement('div');
+      row.className = 'layer-row' + (l.id === activeLayerId ? ' active' : '')
+                    + (selectedLayerIds.size > 1 && selectedLayerIds.has(l.id) ? ' multi-sel' : '')
+                    + (l.visible ? '' : ' hidden-layer')
+                    + (l.folderId != null ? ' in-folder' : '');
 
       const eye = document.createElement('span');
       eye.className = 'layer-eye';
-      eye.textContent = l.visible ? '👁' : '─';
+      eye.textContent = l.visible ? '👁' : '\u2500';
       eye.title = 'Toggle visibility';
       eye.addEventListener('click', ev=>{
         ev.stopPropagation();
@@ -1093,6 +1312,8 @@
       const name = document.createElement('span');
       name.className = 'layer-name';
       name.textContent = l.name;
+      name.title = 'Double-click to rename';
+      attachInlineRename(name, ()=>l.name, v=>{ l.name = v; });
       row.appendChild(name);
 
       const count = document.createElement('span');
@@ -1101,17 +1322,45 @@
       count.textContent = actions.filter(a=>a.layer===l.id).length + ' act';
       row.appendChild(count);
 
-      row.addEventListener('click', ()=>{
+      row.addEventListener('click', ev=>{
         if(suppressLayerClick){ suppressLayerClick = false; return; }
+        if(ev.shiftKey){
+          // Shift+click: toggle this layer in the multi-selection
+          if(selectedLayerIds.has(l.id)) selectedLayerIds.delete(l.id);
+          else selectedLayerIds.add(l.id);
+          selectedLayerIds.add(activeLayerId); // the active layer is part of it
+        } else {
+          // Already the sole selection? Skip the rebuild — this keeps the
+          // row element alive so a DOUBLE-click (rename) can land on it.
+          if(activeLayerId === l.id && activeFolderId === null &&
+             selectedLayerIds.size === 1 && selectedLayerIds.has(l.id)) return;
+          selectedLayerIds = new Set([l.id]);
+        }
         activeLayerId = l.id;
+        activeFolderId = null; // picking a layer deselects the folder
         renderLayersPanel();
       });
 
-      // ---- Drag a layer row onto another row → merge the two layers ----
-      // Pointer Events based: works with mouse, touch, and tablet pens alike.
+      // Right-click: Shift = instant "new folder with this layer";
+      // plain = menu with folder options for this layer.
+      row.addEventListener('contextmenu', ev=>{
+        ev.preventDefault();
+        if(ev.shiftKey){ createFolderWithLayers(selectedLayerIds.size > 1 ? layers.filter(x=>selectedLayerIds.has(x.id)) : [l]); return; }
+        const items = [
+          { label: selectedLayerIds.size > 1 ? ('📁 NEW FOLDER WITH ' + selectedLayerIds.size + ' SELECTED LAYERS') : '📁 NEW FOLDER WITH THIS LAYER',
+            fn: ()=> createFolderWithLayers(selectedLayerIds.size > 1 ? layers.filter(x=>selectedLayerIds.has(x.id)) : [l]) }
+        ];
+        if(l.folderId != null){
+          items.push({ label: '⭱ REMOVE FROM FOLDER', fn: ()=> removeLayerFromFolder(l) });
+        }
+        showLayerMenu(ev.clientX, ev.clientY, items);
+      });
+
+      // ---- Drag a layer row onto another row \u2192 merge; onto a FOLDER row
+      // \u2192 move it into that folder. Pointer Events: mouse, touch, pen.
       row.dataset.layerId = l.id;
       row.style.touchAction = 'none';
-      row.title = 'Drag onto another layer to merge.';
+      row.title = 'Drag onto a layer to merge, onto a folder to move in. Right-click for folder options (Shift+right-click = instant folder).';
       row.addEventListener('pointerdown', ev=>{
         if(ev.button !== undefined && ev.button !== 0) return;
         // Never start a layer-drag (or capture the pointer) from the eye:
@@ -1129,8 +1378,9 @@
           row.classList.add('dragging');
         }
         const el = document.elementFromPoint(ev.clientX, ev.clientY);
-        const over = el && el.closest ? el.closest('.layer-row') : null;
-        document.querySelectorAll('.layer-row.drag-over').forEach(r=>r.classList.remove('drag-over'));
+        const over = el && el.closest ? el.closest('.layer-row, .layer-folder-row') : null;
+        document.querySelectorAll('.layer-row.drag-over, .layer-folder-row.drag-over')
+          .forEach(r=>r.classList.remove('drag-over'));
         if(over && over !== row) over.classList.add('drag-over');
       });
       const endLayerDrag = ev=>{
@@ -1138,13 +1388,16 @@
         const wasActive = layerDragState.active;
         layerDragState = null;
         row.classList.remove('dragging');
-        document.querySelectorAll('.layer-row.drag-over').forEach(r=>r.classList.remove('drag-over'));
+        document.querySelectorAll('.layer-row.drag-over, .layer-folder-row.drag-over')
+          .forEach(r=>r.classList.remove('drag-over'));
         if(wasActive && ev.type === 'pointerup'){
           suppressLayerClick = true;
           setTimeout(()=>{ suppressLayerClick = false; }, 0);
           const el = document.elementFromPoint(ev.clientX, ev.clientY);
-          const over = el && el.closest ? el.closest('.layer-row') : null;
-          if(over && over.dataset.layerId){
+          const over = el && el.closest ? el.closest('.layer-row, .layer-folder-row') : null;
+          if(over && over.dataset.folderId){
+            moveLayerToFolder(l.id, parseInt(over.dataset.folderId, 10));
+          } else if(over && over.dataset.layerId){
             const dropId = parseInt(over.dataset.layerId, 10);
             if(dropId && dropId !== l.id) mergeLayers(l.id, dropId);
           }
@@ -1154,6 +1407,12 @@
       row.addEventListener('pointercancel', endLayerDrag);
 
       list.appendChild(row);
+    });
+
+    // Folders with no members yet: show their headers at the end so layers
+    // can be dragged into them.
+    folders.forEach(f=>{
+      if(!headerDone.has(f.id)) list.appendChild(makeFolderRow(f));
     });
   }
 
@@ -3574,9 +3833,24 @@
     }
 
     if(currentTool === 'select'){
-      // Drag anywhere on the canvas to move the ACTIVE layer's contents.
-      const al = activeLayer();
-      movingLayer = { layer: al, startX: p.x, startY: p.y, dx: 0, dy: 0 };
+      // Drag anywhere on the canvas to move the ACTIVE layer's contents —
+      // or, when a FOLDER is selected, every layer in that folder together.
+      let group = null, label = null;
+      if(selectedLayerIds.size > 1){
+        const sel = layers.filter(l=>selectedLayerIds.has(l.id));
+        if(sel.length > 1){ group = sel; label = sel.length + ' layers'; }
+      }
+      if(!group && activeFolderId != null){
+        const members = layers.filter(l=>l.folderId === activeFolderId);
+        if(members.length){
+          group = members;
+          label = (folders.find(f=>f.id===activeFolderId)||{}).name || 'FOLDER';
+        }
+      }
+      const moveSet = group || [activeLayer()];
+      movingLayer = { layersArr: moveSet, ids: new Set(moveSet.map(l=>l.id)),
+                      label: label || moveSet[0].name,
+                      startX: p.x, startY: p.y, dx: 0, dy: 0 };
       try { drawCanvas.setPointerCapture(e.pointerId); } catch(err){}
       return;
     }
@@ -3654,7 +3928,7 @@
     dctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
     for(const l of layers){
       if(!l.visible) continue;
-      if(l.id === movingLayer.layer.id) dctx.drawImage(l.canvas, movingLayer.dx, movingLayer.dy);
+      if(movingLayer.ids.has(l.id)) dctx.drawImage(l.canvas, movingLayer.dx, movingLayer.dy);
       else dctx.drawImage(l.canvas, 0, 0);
     }
     dctx.restore();
@@ -3987,12 +4261,12 @@
       const dx = Math.round(mv.dx), dy = Math.round(mv.dy);
       if(dx !== 0 || dy !== 0){
         const moved = actions.filter(a =>
-          a.layer === mv.layer.id && a.type !== 'moveLayer' && a.type !== 'mergeLayers');
+          mv.ids.has(a.layer) && a.type !== 'moveLayer' && a.type !== 'mergeLayers' && a.type !== 'layerTexture');
         moved.forEach(a => shiftActionBy(a, dx, dy));
-        actions.push({ type:'moveLayer', id:++actionCounter, layer: mv.layer.id, dx, dy, moved });
+        actions.push({ type:'moveLayer', id:++actionCounter, layer: mv.layersArr[0].id, dx, dy, moved });
         redoStack.length = 0;
         renderAll();
-        toast(`${mv.layer.name} moved: ${dx>=0?'+':''}${dx}, ${dy>=0?'+':''}${dy}`);
+        toast(`${mv.label} moved: ${dx>=0?'+':''}${dx}, ${dy>=0?'+':''}${dy}`);
       } else {
         compositeLayers();
       }
@@ -4047,6 +4321,28 @@
       toast('Layer texture undone.');
       return;
     }
+    // Folder operations → restore structure from the marker.
+    if(undoneAction.type === 'folderCreate'){
+      undoneAction.members.forEach(m=>{ m.l.folderId = m.prev; });
+      folders = folders.filter(f=>f.id !== undoneAction.folder.id);
+      if(activeFolderId === undoneAction.folder.id) activeFolderId = null;
+      renderLayersPanel();
+      toast('Folder creation undone.');
+      return;
+    }
+    if(undoneAction.type === 'folderDissolve'){
+      if(!folders.some(f=>f.id === undoneAction.folder.id)) folders.push(undoneAction.folder);
+      undoneAction.members.forEach(m=>{ m.l.folderId = undoneAction.folder.id; });
+      renderLayersPanel();
+      toast('Folder restored.');
+      return;
+    }
+    if(undoneAction.type === 'folderMove'){
+      undoneAction.l.folderId = undoneAction.prev;
+      renderLayersPanel();
+      toast('Layer folder move undone.');
+      return;
+    }
     // Layer move → shift the same actions back.
     if(undoneAction.type === 'moveLayer'){
       undoneAction.moved.forEach(a => shiftActionBy(a, -undoneAction.dx, -undoneAction.dy));
@@ -4078,6 +4374,30 @@
       return;
     }
     const redoneAction = redoStack.pop();
+    if(redoneAction.type === 'folderCreate'){
+      if(!folders.some(f=>f.id === redoneAction.folder.id)) folders.push(redoneAction.folder);
+      redoneAction.members.forEach(m=>{ m.l.folderId = redoneAction.folder.id; });
+      actions.push(redoneAction);
+      renderLayersPanel();
+      toast('Folder re-created.');
+      return;
+    }
+    if(redoneAction.type === 'folderDissolve'){
+      redoneAction.members.forEach(m=>{ m.l.folderId = null; });
+      folders = folders.filter(f=>f.id !== redoneAction.folder.id);
+      if(activeFolderId === redoneAction.folder.id) activeFolderId = null;
+      actions.push(redoneAction);
+      renderLayersPanel();
+      toast('Folder dissolved again.');
+      return;
+    }
+    if(redoneAction.type === 'folderMove'){
+      redoneAction.l.folderId = redoneAction.next;
+      actions.push(redoneAction);
+      renderLayersPanel();
+      toast('Layer folder move redone.');
+      return;
+    }
     if(redoneAction.type === 'layerTexture'){
       redoneAction.prev.forEach(p => { p.a.texture = redoneAction.texture; p.a.grain = redoneAction.grain; });
       actions.push(redoneAction);
@@ -4242,6 +4562,9 @@
     selectedStrokeId = null;
     layers = [createLayer()];
     activeLayerId = layers[0].id;
+    folders = [];               // folders reset with the layers
+    activeFolderId = null;
+    selectedLayerIds = new Set([activeLayerId]);
     renderAll();
     toast('Canvas reset.');
   });
@@ -4278,7 +4601,7 @@
     return c;
   }
 
-  function buildRecipeForBBox(bbox){
+  function buildRecipeForBBox(bbox, onlyLayerIds){
     const margin = 4;
     const result = [];
     const layerIndexOf = a => Math.max(0, layers.findIndex(l=>l.id===a.layer));
@@ -4568,6 +4891,30 @@
     } catch(err){
       console.error('loadSampleToDrawing failed:', err);
       toast('Load to drawing failed: ' + (err.message || err));
+    }
+  }
+
+  // Right-click a folder header → register just that folder's visible
+  // layers as a gallery object (the drawing canvas is left untouched).
+  async function registerFolderAsObject(fid){
+    if(replaying){ toast('Replaying — please wait.'); return; }
+    const members = layers.filter(l=>l.folderId === fid && l.visible);
+    if(!members.length){ toast('Folder has no visible layers.'); return; }
+    const temp = document.createElement('canvas');
+    temp.width = drawCanvas.width; temp.height = drawCanvas.height;
+    const tc = temp.getContext('2d');
+    for(const l of layers){ if(l.folderId === fid && l.visible) tc.drawImage(l.canvas, 0, 0); }
+    const bbox = getBBox(temp);
+    if(!bbox){ toast('Folder layers are empty.'); return; }
+    const cropped = cropCanvas(temp, bbox);
+    const recipe = buildRecipeForBBox(bbox, new Set(members.map(l=>l.id)));
+    const obj = addObject(cropped, recipe);
+    toast(`Folder registered as OBJ-${String(objCounter).padStart(2,'0')} (${cropped.width}×${cropped.height})`);
+    try {
+      await savePatternToFolder(cropped, obj.id, recipe);
+    } catch (err) {
+      console.error(err);
+      toast('Save error: ' + (err.message || err));
     }
   }
 
@@ -5402,7 +5749,8 @@
     }
     return JSON.stringify({
       v: 1, ts: Date.now(),
-      layers: layers.map(l=>({ id:l.id, name:l.name, visible:l.visible })),
+      layers: layers.map(l=>({ id:l.id, name:l.name, visible:l.visible, f: l.folderId || 0 })),
+      folders: folders.map(f=>({ id:f.id, name:f.name })),
       active: activeLayerId,
       acts
     });
@@ -5438,9 +5786,13 @@
         const l = createLayer(ld.name);
         l.id = ld.id;
         l.visible = ld.visible !== false;
+        if(ld.f) l.folderId = ld.f;
         return l;
       });
       layerIdCounter = Math.max(layerIdCounter, ...st.layers.map(l=>l.id));
+      folders = Array.isArray(st.folders) ? st.folders.map(f=>({ id:f.id, name:f.name })) : [];
+      if(folders.length) folderIdCounter = Math.max(folderIdCounter, ...folders.map(f=>f.id));
+      activeFolderId = null;
       activeLayerId = st.layers.some(l=>l.id===st.active) ? st.active : layers[layers.length-1].id;
       actions.length = 0;
       redoStack.length = 0;
