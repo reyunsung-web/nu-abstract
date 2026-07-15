@@ -23,11 +23,12 @@
   }
   .topbar {
     position: sticky; top: 0; z-index: 20;
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: center;
     padding: 14px 22px; background: rgba(245,245,247,0.9);
     backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-soft);
   }
-  .topbar h1 { font-size: 15px; letter-spacing: 1.5px; font-weight: 700; }
+  .topbar h1 { font-size: 15px; letter-spacing: 1.5px; font-weight: 700; text-align: center; }
+  .count-chip { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); }
   .topbar p { font-size: 11px; color: var(--sub); margin-top: 2px; }
   .count-chip {
     font-family: var(--font-mono); font-size: 11px; color: var(--sub);
@@ -52,12 +53,13 @@
     background-size: 18px 18px; background-position: 0 0, 9px 9px;
   }
   .card .meta {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: center;
     gap: 6px; padding: 8px 10px; border-top: 1px solid var(--border-soft);
   }
   .card .name {
     font-family: var(--font-mono); font-size: 10px; color: var(--sub);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    text-align: center;
   }
   /* action buttons: hidden until right-click reveals them */
   .dl-btn, .del-btn {
