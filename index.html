@@ -130,6 +130,14 @@
   }
   .nav-wrap button:hover { background: var(--border-soft); }
   #navInfo { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); }
+  .tex-label { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); flex: 1 1 100%; }
+  .tex-group { display: flex; gap: 4px; flex: 1 1 100%; }
+  .tex-btn {
+    flex: 1; font-family: var(--font-mono); font-size: 10px; padding: 4px 2px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--panel); color: var(--ink-dim); cursor: pointer;
+  }
+  .tex-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  #liveTexBtn.live-on { background: var(--ink); color: #fff; }
   #navPreview {
     width: 100%; aspect-ratio: 1/1; display: block; cursor: pointer; touch-action: none;
     border: 1px solid var(--border); border-radius: 8px;
@@ -346,7 +354,15 @@
 
   /* ---------- composition controls ---------- */
   .comp-controls { display: flex; flex-direction: column; gap: 12px; }
-  .comp-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  /* Aligned rows: fixed label column | controls | right-aligned value */
+  .comp-row { display: grid; grid-template-columns: 96px 1fr 64px; align-items: center; gap: 10px; }
+  .comp-row .val { text-align: right; min-width: 0; width: auto; }
+  .comp-row .dual { display: flex; gap: 8px; min-width: 0; }
+  .comp-row .dual input[type=range] { flex: 1; min-width: 0; }
+  .comp-row input[type=range] { min-width: 0; }
+  .comp-row .bg-swatches { grid-column: 2 / -1; }
+  .comp-item-editor .range-row { display: grid; grid-template-columns: 96px 1fr 64px; align-items: center; gap: 10px; min-width: 0; }
+  .comp-item-editor .range-row .val { text-align: right; min-width: 0; }
   .comp-btns { display: flex; gap: 8px; }
   .comp-btns .btn { flex: 1; }
   .bg-swatches { display: flex; gap: 6px; align-items: center; }
@@ -660,6 +676,28 @@
           <div class="brush-preview"><div id="brushPreviewDot" style="width:8px;height:8px;border-radius:0;"></div></div>
         </div>
       </div>
+      <div class="tool-row" style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div class="range-row">
+          <span>STABILIZER</span>
+          <input type="range" id="stabilizer" min="0" max="20" value="6" title="Stroke stabilization: 0 = raw input, higher = smoother but the brush lags more">
+          <span class="val" id="stabilizerVal">6</span>
+        </div>
+      </div>
+      <div class="tool-row" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <span class="tex-label">TEXTURE</span>
+        <div class="tex-group">
+          <button class="tex-btn active" data-tex="smooth" title="Clean anti-aliased line (default)">SMOOTH</button>
+          <button class="tex-btn" data-tex="pencil" title="Paper-tooth pencil grain">PENCIL</button>
+          <button class="tex-btn" data-tex="spray" title="Scattered airbrush dots">SPRAY</button>
+        </div>
+        <div class="range-row">
+          <span>GRAIN</span>
+          <input type="range" id="grain" min="0" max="100" value="50" title="Texture intensity">
+          <span class="val" id="grainVal">50</span>
+        </div>
+        <button class="btn btn-sm btn-full" id="liveTexBtn"
+          title="When ON, changing TEXTURE or GRAIN re-textures every stroke on the ACTIVE layer in real time (undoable)">◈ LIVE → ACTIVE LAYER: OFF</button>
+      </div>
       <div class="tool-row" id="toleranceRow" style="display:flex;gap:10px;flex-wrap:wrap;">
         <div class="range-row">
           <span>TOLERANCE</span>
@@ -782,7 +820,7 @@
 
       <div class="comp-item-editor" id="compItemEditor" hidden>
         <h3>ADJUST ELEMENT</h3>
-        <p class="hint-note" style="color:var(--ink-dim); margin-top:0;">* Drag the element in the canvas to move it.<br>* Hotkeys: <code>[</code> layer down · <code>]</code> layer up</p>
+        <p class="hint-note" style="color:var(--ink-dim); margin-top:0;">* Drag to move · click to open in DRAWING (live-linked: edits sync back here).<br>* Hotkeys: <code>[</code> layer down · <code>]</code> layer up</p>
         <div class="range-row">
           <span>SCALE</span>
           <input type="range" id="itemScale" min="10" max="400" value="100">
@@ -803,19 +841,21 @@
       <div class="comp-controls">
         <div class="comp-row">
           <span class="label-mono">COUNT</span>
-          <input type="range" id="compCount" min="1" max="60" value="14" style="flex:1;">
+          <input type="range" id="compCount" min="1" max="60" value="14">
           <span class="val" id="compCountVal">14</span>
         </div>
         <div class="comp-row">
           <span class="label-mono">SCALE RANGE</span>
-          <input type="range" id="scaleMin" min="10" max="300" value="40" style="flex:1;">
-          <input type="range" id="scaleMax" min="10" max="300" value="160" style="flex:1;">
-          <span class="val" id="scaleRangeVal" style="width:70px;">0.4–1.6x</span>
+          <div class="dual">
+            <input type="range" id="scaleMin" min="10" max="300" value="40">
+            <input type="range" id="scaleMax" min="10" max="300" value="160">
+          </div>
+          <span class="val" id="scaleRangeVal">0.4–1.6x</span>
         </div>
         <div class="comp-row">
           <span class="label-mono">ANTI-ALIAS</span>
           <input type="range" id="aaLevel" min="0" max="100" value="50" style="flex:1;">
-          <span class="val" id="aaLevelVal" style="width:70px;">50%</span>
+          <span class="val" id="aaLevelVal">50%</span>
         </div>
         <div class="comp-row">
           <span class="label-mono">BACKGROUND</span>
@@ -932,6 +972,7 @@
 
   const placedItems = []; 
   let selectedItemIdx = null;
+  let liveEditTarget = null; // object currently live-linked to the drawing canvas
   let isDraggingItem = false;
   let dragStartMouse = { x: 0, y: 0 };
   let dragStartItemPos = { x: 0, y: 0 };
@@ -1288,6 +1329,7 @@
     actions.push({ type:'layerRecolor', id:++actionCounter, color: fillColor, layer: al.id });
     redoStack.length = 0;
     renderLayersPanel();
+    if(typeof syncLiveEdit === 'function') syncLiveEdit(true); // live link: recolor → composition + gallery now
     toast(`${al.name} recolored → ${fillColor.toUpperCase()}`);
   });
 
@@ -1389,11 +1431,11 @@
         let prog = 1;
         while(prog < pts.length){
           const n = Math.max(1, Math.ceil(prog));
-          blit(lid, t => strokeSmoothPath(t, pts.slice(0, n), a.width, a.color, isEraser));
+          blit(lid, t => strokeSmoothPath(t, pts.slice(0, n), a.width, a.color, isEraser, a.texture, a.grain, a.seed));
           await raf();
           prog += ptsPerFrame;
         }
-        strokeSmoothPath(doneCtx(lid), pts, a.width, a.color, isEraser); // commit
+        strokeSmoothPath(doneCtx(lid), pts, a.width, a.color, isEraser, a.texture, a.grain, a.seed); // commit
         blit();
         await raf();
       } else if(a.type === 'fill'){
@@ -1713,8 +1755,10 @@
     const slim = recipe.map(a=>{
       const li = a.li || 0;
       if(a.type==='stroke'){
-        return { type:'stroke', tool:a.tool, color:a.color, width:a.width, li,
-                 points:a.points.map(p=>({x:Math.round(p.x*10)/10, y:Math.round(p.y*10)/10})) };
+        const o = { type:'stroke', tool:a.tool, color:a.color, width:a.width, li,
+                    points:a.points.map(p=>({x:Math.round(p.x*10)/10, y:Math.round(p.y*10)/10})) };
+        if(a.texture && a.texture !== 'smooth'){ o.tx = a.texture; o.g = a.grain; o.sd = a.seed; }
+        return o;
       }
       if(a.type==='fill'){
         const o = { type:'fill', x:Math.round(a.x*10)/10, y:Math.round(a.y*10)/10, color:a.color, tolerance:a.tolerance||0, li };
@@ -2686,6 +2730,10 @@
     }
     dctx.restore();
     if(typeof updateNavPreview === 'function') updateNavPreview();
+    // Live link: compositeLayers is the single choke point every canvas
+    // change flows through (recolor, fills, eye toggles, undo\u2026) \u2014 hooking
+    // here guarantees the composition mirrors ALL of them, not just strokes.
+    if(typeof scheduleLiveSync === 'function') scheduleLiveSync();
   }
   layers.push(createLayer());
   activeLayerId = layers[0].id;
@@ -3218,8 +3266,58 @@
     return cur;
   }
 
-  function strokeSmoothPath(ctx, rawPts, width, color, isEraser){
+  // Deterministic per-pixel noise: hashes ABSOLUTE canvas coords + a
+  // per-stroke seed, so partial replays, undo and archives repaint the
+  // exact same grain.
+  function grainNoise(x, y, seed){
+    let h = (x*374761393 + y*668265263 + (seed|0)*2246822519) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  function mulberry32(seed){
+    let t = seed >>> 0;
+    return function(){
+      t += 0x6D2B79F5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Bare path renderer (no composite handling) shared by all textures.
+  function drawSmoothPathOn(ctx, pts, width, color){
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if(pts.length === 1){
+      ctx.beginPath();
+      ctx.arc(pts[0].x, pts[0].y, width/2, 0, Math.PI*2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      if(pts.length === 2){
+        ctx.lineTo(pts[1].x, pts[1].y);
+      } else {
+        for(let i=1; i<pts.length-1; i++){
+          const mx = (pts[i].x + pts[i+1].x) / 2;
+          const my = (pts[i].y + pts[i+1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+        }
+        ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function strokeSmoothPath(ctx, rawPts, width, color, isEraser, texture, grain, seed){
     if(!rawPts || rawPts.length===0) return;
+    if(texture && texture !== 'smooth'){
+      strokeTexturedPath(ctx, rawPts, width, color, isEraser, texture, grain, seed);
+      return;
+    }
     const pts = smoothPoints(rawPts);
     ctx.save();
     ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
@@ -3253,8 +3351,80 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
+  // PENCIL: the smooth path with deterministic paper-tooth grain eating into
+  // its alpha. SPRAY: seeded scatter dots along the path. Both render into a
+  // bbox-sized temp so the grain never touches pixels outside the stroke.
+  function strokeTexturedPath(ctx, rawPts, width, color, isEraser, texture, grain, seed){
+    const pts = smoothPoints(rawPts);
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    for(const p of pts){
+      if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x;
+      if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y;
+    }
+    const pad = width + 4;
+    const x0 = Math.max(0, Math.floor(minX - pad)), y0 = Math.max(0, Math.floor(minY - pad));
+    const x1 = Math.min(ctx.canvas.width,  Math.ceil(maxX + pad));
+    const y1 = Math.min(ctx.canvas.height, Math.ceil(maxY + pad));
+    const tw = x1 - x0, th = y1 - y0;
+    if(tw <= 0 || th <= 0) return;
+    const t = document.createElement('canvas');
+    t.width = tw; t.height = th;
+    const tc = t.getContext('2d', { willReadFrequently: true });
+    tc.translate(-x0, -y0);
+    const g = Math.max(0, Math.min(100, grain == null ? 50 : grain)) / 100;
+    const sd = (seed == null ? 1 : seed) | 0;
+    const drawColor = isEraser ? '#000' : color;
+
+    if(texture === 'pencil'){
+      drawSmoothPathOn(tc, pts, width, drawColor);
+      const img = tc.getImageData(0, 0, tw, th);
+      const d = img.data;
+      const depth = 0.25 + 0.72 * g; // how deep the tooth bites (grain slider)
+      for(let y=0; y<th; y++){
+        for(let x=0; x<tw; x++){
+          const i = (y*tw + x)*4 + 3;
+          const a = d[i];
+          if(!a) continue;
+          const n = grainNoise(x0 + x, y0 + y, sd);
+          d[i] = (a * (1 - depth * n * n)) | 0; // n² → sparse bright specks
+        }
+      }
+      tc.putImageData(img, 0, 0);
+    } else { // 'spray'
+      tc.fillStyle = drawColor;
+      const rnd = mulberry32(sd);
+      const step = Math.max(1, width * 0.35);
+      const density = 2 + g * 10; // dots per step
+      const one = pts.length === 1 ? [pts[0], pts[0]] : pts;
+      for(let i=1; i<one.length; i++){
+        const a0 = one[i-1], b0 = one[i];
+        const segLen = Math.max(0.01, Math.hypot(b0.x-a0.x, b0.y-a0.y));
+        const n = Math.max(1, Math.round(segLen / step));
+        for(let k=0; k<n; k++){
+          const tt = k / n;
+          const cx2 = a0.x + (b0.x-a0.x)*tt, cy2 = a0.y + (b0.y-a0.y)*tt;
+          const dots = density * (0.5 + rnd());
+          for(let dcount=0; dcount<dots; dcount++){
+            const ang = rnd() * Math.PI * 2;
+            const rad = Math.sqrt(rnd()) * width * 0.5;
+            const sz = 0.6 + rnd() * 1.5;
+            tc.globalAlpha = 0.2 + rnd() * 0.8;
+            tc.fillRect(cx2 + Math.cos(ang)*rad - sz/2, cy2 + Math.sin(ang)*rad - sz/2, sz, sz);
+          }
+        }
+      }
+      tc.globalAlpha = 1;
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+    ctx.drawImage(t, x0, y0);
+    ctx.restore();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
   function renderStrokeFull(ctx, action){
-    strokeSmoothPath(ctx, action.points, action.width, action.color, action.tool === 'eraser');
+    strokeSmoothPath(ctx, action.points, action.width, action.color, action.tool === 'eraser',
+                     action.texture, action.grain, action.seed);
   }
 
   function drawSelectionHighlight(a){
@@ -3396,6 +3566,7 @@
                        layer: fl.id, src: srcIds, m: encodeMask(mask) });
         renderLayersPanel();
         redoStack.length = 0;
+        if(typeof syncLiveEdit === 'function') syncLiveEdit(true); // live link: fill → composition + gallery now
         toast(`Fill split to new layer: ${fl.name}.`);
       }, 10);
       return;
@@ -3412,7 +3583,9 @@
     drawing = true;
     drawCanvas.setPointerCapture(e.pointerId);
     lastRawPos = p;
-    currentAction = { type:'stroke', id:++actionCounter, tool:currentTool, color:strokeColor, width:brushSize, points:[p], layer: activeLayer().id };
+    currentAction = { type:'stroke', id:++actionCounter, tool:currentTool, color:strokeColor, width:brushSize,
+                      texture: currentTexture, grain: currentGrain, seed: (Math.random()*2147483647)|0,
+                      points:[p], layer: activeLayer().id };
     takeStrokeSnapshot();
     repaintLiveStroke();
   });
@@ -3458,12 +3631,16 @@
     dctx.drawImage(liveAbove, 0, 0);
     dctx.restore();
     updateNavPreview();
+    if(typeof scheduleLiveSync === 'function') scheduleLiveSync();
   }
 
   // ---- Lazy brush: the brush trails the pointer on a "string" of radius
-  // LAZY_RADIUS. The brush only moves when the string is taut, which filters
+  // lazyRadius. The brush only moves when the string is taut, which filters
   // out hand jitter completely and produces very fluid, calligraphic lines.
-  const LAZY_RADIUS = 6; // canvas px (1080-scale); ~2px on screen
+  // Adjustable via the STABILIZER slider (0 = raw input, higher = smoother
+  // but laggier). The chosen radius is baked into the recorded points, so
+  // replay/undo/archives stay deterministic regardless of later changes.
+  let lazyRadius = 6; // canvas px (1080-scale); ~2px on screen at default
   let lastRawPos = null;
 
   // ---- SELECT tool: move the active layer's contents by dragging ----
@@ -3481,6 +3658,7 @@
     }
     dctx.restore();
     updateNavPreview();
+    if(typeof scheduleLiveSync === 'function') scheduleLiveSync();
   }
 
   // Shift an action's recorded coordinates by (dx, dy). Split fills carry a
@@ -3526,8 +3704,8 @@
     const last = pts[pts.length-1];
     const dx = p.x - last.x, dy = p.y - last.y;
     const dist = Math.hypot(dx, dy);
-    if(dist <= LAZY_RADIUS) return; // string is slack → brush stays put
-    const t = (dist - LAZY_RADIUS) / dist;
+    if(dist <= lazyRadius) return; // string is slack → brush stays put
+    const t = (dist - lazyRadius) / dist;
     pts.push({ x: last.x + dx * t, y: last.y + dy * t });
     repaintLiveStroke();
   });
@@ -3594,6 +3772,14 @@
       toast(`Merge undone: ${undoneAction.dragName} restored.`);
       return;
     }
+    // Layer re-texture → restore each stroke's previous texture/grain.
+    if(undoneAction.type === 'layerTexture'){
+      undoneAction.prev.forEach(p => { p.a.texture = p.texture; p.a.grain = p.grain; });
+      clearStrokeSelection();
+      renderAll();
+      toast('Layer texture undone.');
+      return;
+    }
     // Layer move → shift the same actions back.
     if(undoneAction.type === 'moveLayer'){
       undoneAction.moved.forEach(a => shiftActionBy(a, -undoneAction.dx, -undoneAction.dy));
@@ -3625,6 +3811,14 @@
       return;
     }
     const redoneAction = redoStack.pop();
+    if(redoneAction.type === 'layerTexture'){
+      redoneAction.prev.forEach(p => { p.a.texture = redoneAction.texture; p.a.grain = redoneAction.grain; });
+      actions.push(redoneAction);
+      clearStrokeSelection();
+      renderAll();
+      toast('Layer texture redone.');
+      return;
+    }
     if(redoneAction.type === 'moveLayer'){
       redoneAction.moved.forEach(a => shiftActionBy(a, redoneAction.dx, redoneAction.dy));
       actions.push(redoneAction);
@@ -3701,6 +3895,65 @@
     paletteGrid.appendChild(cell);
   });
 
+  // ==================== STROKE TEXTURES ====================
+  let currentTexture = 'smooth';
+  let currentGrain = 50;
+  let liveTexApply = false;
+  let texApplyTimer = null;
+
+  // Re-texture every stroke on the ACTIVE layer with the current settings.
+  // Consecutive adjustments coalesce into ONE undoable 'layerTexture' marker
+  // (so dragging the GRAIN slider doesn't flood the history).
+  function retextureActiveLayer(){
+    if(replaying) return;
+    const lid = activeLayerId;
+    const strokes = actions.filter(a => a.type === 'stroke' && a.layer === lid);
+    if(!strokes.length) return;
+    let marker = actions[actions.length - 1];
+    if(!(marker && marker.type === 'layerTexture' && marker.layer === lid)){
+      marker = {
+        type: 'layerTexture', id: ++actionCounter, layer: lid,
+        prev: strokes.map(a => ({ a, texture: a.texture || 'smooth', grain: a.grain == null ? 50 : a.grain }))
+      };
+      actions.push(marker);
+      redoStack.length = 0;
+    }
+    marker.texture = currentTexture;
+    marker.grain = currentGrain;
+    strokes.forEach(a => {
+      a.texture = currentTexture;
+      a.grain = currentGrain;
+      if(a.seed == null) a.seed = (Math.random()*2147483647)|0;
+    });
+    if(texApplyTimer) return;
+    texApplyTimer = setTimeout(()=>{ texApplyTimer = null; renderAll(); }, 120);
+  }
+
+  document.querySelectorAll('.tex-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tex-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTexture = btn.dataset.tex;
+      if(liveTexApply) retextureActiveLayer();
+    });
+  });
+  $('grain').addEventListener('input', e=>{
+    currentGrain = parseInt(e.target.value, 10);
+    $('grainVal').textContent = currentGrain;
+    if(liveTexApply) retextureActiveLayer();
+  });
+  $('liveTexBtn').addEventListener('click', ()=>{
+    liveTexApply = !liveTexApply;
+    $('liveTexBtn').classList.toggle('live-on', liveTexApply);
+    $('liveTexBtn').textContent = `◈ LIVE → ACTIVE LAYER: ${liveTexApply ? 'ON' : 'OFF'}`;
+    if(liveTexApply) retextureActiveLayer();
+  });
+
+  $('stabilizer').addEventListener('input', e=>{
+    lazyRadius = parseInt(e.target.value, 10);
+    $('stabilizerVal').textContent = lazyRadius;
+  });
+
   $('brushSize').addEventListener('input', e=>{
     brushSize = parseInt(e.target.value);
     toolSizes[currentTool === 'eraser' ? 'eraser' : 'brush'] = brushSize;
@@ -3716,6 +3969,7 @@
 
   $('clearDrawBtn').addEventListener('click', ()=>{
     if(replaying){ toast('Replaying — please wait.'); return; }
+    liveEditTarget = null; // end live link — a reset must not blank the object
     actions.length = 0;
     redoStack.length = 0;
     selectedStrokeId = null;
@@ -3768,10 +4022,12 @@
           p.x>=bbox.minX-margin && p.x<=bbox.minX+bbox.w+margin &&
           p.y>=bbox.minY-margin && p.y<=bbox.minY+bbox.h+margin);
         if(inside){
-          result.push({
+          const so = {
             type:'stroke', tool:a.tool, color:a.color, width:a.width, li,
             points:a.points.map(p=>({x:p.x-bbox.minX, y:p.y-bbox.minY}))
-          });
+          };
+          if(a.texture && a.texture !== 'smooth'){ so.tx = a.texture; so.g = a.grain; so.sd = a.seed; }
+          result.push(so);
         }
       } else if(a.type==='fill'){
         const inside = a.x>=bbox.minX-margin && a.x<=bbox.minX+bbox.w+margin &&
@@ -3882,7 +4138,10 @@
       delBtn.textContent = 'DEL';
       delBtn.title = 'Remove this sample from the list';
       delBtn.addEventListener('click', ()=>{
-        if(confirm(`Delete OBJ-${String(obj.id).padStart(2,'0')} from samples?`)) removeObject(obj.id);
+        if(confirm(`Delete OBJ-${String(obj.id).padStart(2,'0')} from samples?`)){
+          if(liveEditTarget === obj) liveEditTarget = null;
+          removeObject(obj.id);
+        }
       });
       actionsRow.appendChild(delBtn);
 
@@ -3896,6 +4155,7 @@
   // Raster-only samples load as an image layer, centered.
   function loadSampleToDrawing(obj){
     if(!obj){ toast('Sample not found.'); return; }
+    liveEditTarget = null;
     dctx.globalCompositeOperation = 'source-over';
     try {
       const cw = drawCanvas.width, ch = drawCanvas.height;
@@ -3913,6 +4173,9 @@
           if(a.type === 'stroke'){
             actions.push({
               type:'stroke', id:++actionCounter, tool:a.tool, color:a.color, width:a.width,
+              texture: a.texture || a.tx || 'smooth',
+              grain: (a.grain != null ? a.grain : (a.g != null ? a.g : 50)),
+              seed: (a.seed != null ? a.seed : (a.sd != null ? a.sd : ((Math.random()*2147483647)|0))),
               points: a.points.map(p=>({ x:p.x + offX, y:p.y + offY })),
               layer: layerIdFor(a)
             });
@@ -3970,6 +4233,7 @@
     const recipe = buildRecipeForBBox(bbox);
     const obj = addObject(cropped, recipe);
     toast(`Registered OBJ-${String(objCounter).padStart(2,'0')} (${cropped.width}×${cropped.height})`);
+    liveEditTarget = null; // registering ends any live link before the canvas clears
     actions.length = 0;
     redoStack.length = 0;
     clearStrokeSelection();
@@ -4120,8 +4384,9 @@
           const isEraser = a.tool === 'eraser';
           const newColor = isEraser ? a.color : shiftColor(a.color, colorShift);
 
-          strokeSmoothPath(cx, finalPts, a.width, newColor, isEraser);
-          redrawnActions.push({ type:'stroke', tool:a.tool, color:newColor, width:a.width, points: finalPts, li: a.li || 0 });
+          strokeSmoothPath(cx, finalPts, a.width, newColor, isEraser, a.texture, a.grain, a.seed);
+          redrawnActions.push({ type:'stroke', tool:a.tool, color:newColor, width:a.width, points: finalPts, li: a.li || 0,
+                                texture: a.texture, grain: a.grain, seed: a.seed });
         } else if(a.type === 'fill'){
           const finalSeed = transformPt({x:a.x, y:a.y});
           const newColor = shiftColor(a.color, colorShift);
@@ -4131,26 +4396,79 @@
             // fill region follows the warped lineart perfectly — it can
             // never leak, flood, or get dropped like a re-flood could.
             const smw = a.mw || drawCanvas.width, smh = a.mh || drawCanvas.height;
-            const srcM = decodeMask(a.m, smw*smh);
             const sox = Math.round(a.ox||0), soy = Math.round(a.oy||0);
-            const dst = new Uint8Array(c.width * c.height);
-            for(let vi=0; vi<smw*smh; vi++){
-              const v = srcM[vi];
-              if(!v) continue;
-              const ox2 = (vi % smw) + sox, oy2 = ((vi - (vi % smw)) / smw) + soy;
-              const p2 = transformPt({ x: ox2 + 0.5, y: oy2 + 0.5 });
-              const xi = Math.round(p2.x - 0.5), yi = Math.round(p2.y - 0.5);
-              if(xi<0 || xi>=c.width || yi<0 || yi>=c.height) continue;
-              const di2 = yi*c.width + xi;
-              if(v === 1) dst[di2] = 1;
-              else if(!dst[di2]) dst[di2] = 2;
+            const rleM = a.m;
+
+            // -- source bbox straight from the RLE (no full-grid decode) --
+            let sminX = Infinity, smaxX = -1, sminY = Infinity, smaxY = -1, fullRowX = false;
+            for(let k=0; k<rleM.length; k+=3){
+              const st2 = rleM[k], ln2 = rleM[k+1];
+              const ry0 = (st2 / smw) | 0, ry1 = ((st2 + ln2 - 1) / smw) | 0;
+              if(ry0 < sminY) sminY = ry0;
+              if(ry1 > smaxY) smaxY = ry1;
+              if(ry1 > ry0){ fullRowX = true; }
+              else {
+                const xs2 = st2 % smw, xe2 = xs2 + ln2 - 1;
+                if(xs2 < sminX) sminX = xs2;
+                if(xe2 > smaxX) smaxX = xe2;
+              }
             }
-            // Close 1px cracks left by the forward splat (scale/rotate can
-            // skip cells). Fill empty pixels with ≥3 filled 4-neighbours:
-            // closes holes without growing the region's edge.
+            if(fullRowX){ sminX = 0; smaxX = smw - 1; }
+            if(smaxY < 0){ return; } // empty mask
+            
+            // -- coarse warp grid (8px) + bilinear interpolation: the warp
+            //    field is smooth, so this is visually identical to per-cell
+            //    transformPt but ~50x cheaper on large regions --
+            const STEP = 8;
+            const gw2 = (((smaxX - sminX) / STEP) | 0) + 2;
+            const gh2 = (((smaxY - sminY) / STEP) | 0) + 2;
+            const gxs = new Float32Array(gw2 * gh2), gys = new Float32Array(gw2 * gh2);
+            for(let gy=0; gy<gh2; gy++){
+              for(let gx=0; gx<gw2; gx++){
+                const p2 = transformPt({ x: sminX + gx*STEP + sox + 0.5, y: sminY + gy*STEP + soy + 0.5 });
+                gxs[gy*gw2+gx] = p2.x; gys[gy*gw2+gx] = p2.y;
+              }
+            }
+            const warpCell = (x2, y2)=>{
+              let fx = (x2 - sminX) / STEP, fy = (y2 - sminY) / STEP;
+              let ix = fx | 0, iy = fy | 0;
+              if(ix > gw2-2) ix = gw2-2; if(iy > gh2-2) iy = gh2-2;
+              if(ix < 0) ix = 0; if(iy < 0) iy = 0;
+              const tx = fx - ix, ty = fy - iy;
+              const i00 = iy*gw2+ix, i10 = i00+1, i01 = i00+gw2, i11 = i01+1;
+              return {
+                x: (gxs[i00]*(1-tx)+gxs[i10]*tx)*(1-ty) + (gxs[i01]*(1-tx)+gxs[i11]*tx)*ty,
+                y: (gys[i00]*(1-tx)+gys[i10]*tx)*(1-ty) + (gys[i01]*(1-tx)+gys[i11]*tx)*ty
+              };
+            };
+
+            // -- forward splat, iterating RLE runs only, tracking dest bbox --
+            const dst = new Uint8Array(c.width * c.height);
+            let dminX = c.width, dmaxX = -1, dminY = c.height, dmaxY = -1;
+            for(let k=0; k<rleM.length; k+=3){
+              const st2 = rleM[k], ln2 = rleM[k+1], v = rleM[k+2];
+              for(let idx2 = st2; idx2 < st2 + ln2; idx2++){
+                const x2 = idx2 % smw, y2 = (idx2 - x2) / smw;
+                const p2 = warpCell(x2, y2);
+                const xi = Math.round(p2.x - 0.5), yi = Math.round(p2.y - 0.5);
+                if(xi < 0 || xi >= c.width || yi < 0 || yi >= c.height) continue;
+                const di2 = yi*c.width + xi;
+                if(v === 1) dst[di2] = 1;
+                else if(!dst[di2]) dst[di2] = 2;
+                if(xi < dminX) dminX = xi; if(xi > dmaxX) dmaxX = xi;
+                if(yi < dminY) dminY = yi; if(yi > dmaxY) dmaxY = yi;
+              }
+            }
+            if(dmaxX < 0){ return; } // splatted fully off-canvas
+
+            // cleanup passes run ONLY inside the splat's bbox (+2px margin)
+            const bx0 = Math.max(1, dminX-2), bx1 = Math.min(c.width-2, dmaxX+2);
+            const by0 = Math.max(1, dminY-2), by1 = Math.min(c.height-2, dmaxY+2);
+
+            // close 1px splat cracks (>=3 filled 4-neighbours)
             for(let pass=0; pass<2; pass++){
-              for(let y2=1; y2<c.height-1; y2++){
-                for(let x2=1; x2<c.width-1; x2++){
+              for(let y2=by0; y2<=by1; y2++){
+                for(let x2=bx0; x2<=bx1; x2++){
                   const di2 = y2*c.width + x2;
                   if(dst[di2]) continue;
                   let n = 0;
@@ -4162,16 +4480,11 @@
                 }
               }
             }
-            // Erode the CORE by 2px (demote to ring). The splat lands within
-            // ~1-2px of the re-rendered warped strokes, so a core cell can
-            // end up ON a line pixel — paintSplitFill's core-replace rule
-            // would then overwrite the line (lines visibly disappearing).
-            // Ring cells under-blend, so demoted edges tuck under the lines
-            // instead. Interior core stays, keeping recolor-fills working.
+            // erode CORE 2px so it can never sit on warped line pixels
             for(let pass=0; pass<2; pass++){
               const demote = [];
-              for(let y2=0; y2<c.height; y2++){
-                for(let x2=0; x2<c.width; x2++){
+              for(let y2=Math.max(0,dminY); y2<=Math.min(c.height-1,dmaxY); y2++){
+                for(let x2=Math.max(0,dminX); x2<=Math.min(c.width-1,dmaxX); x2++){
                   const di2 = y2*c.width + x2;
                   if(dst[di2] !== 1) continue;
                   const lft = x2>0 ? dst[di2-1] : 0;
@@ -4251,13 +4564,27 @@
     $('variationBlock').scrollIntoView({behavior:'smooth', block:'nearest'});
   }
 
-  function regenerateVariations(){
-    if(!currentVarTarget) return;
+  let varGenBusy = false;
+  async function regenerateVariations(){
+    if(!currentVarTarget || varGenBusy) return;
+    varGenBusy = true;
+    const btn = $('regenVarBtn'); if(btn) btn.disabled = true;
     variationsCache = [];
-    for(let i=0;i<6;i++){
-      variationsCache.push(makeVariation(currentVarTarget, i));
+    renderVariationsGrid(); // shows the GENERATING placeholder immediately
+    try {
+      for(let i=0; i<6; i++){
+        // Yield to the browser between variations so the page stays
+        // responsive on stroke-heavy drawings; cards appear one by one.
+        await new Promise(r => setTimeout(r, 0));
+        if(!currentVarTarget) break; // target changed/cleared mid-run
+        variationsCache.push(makeVariation(currentVarTarget, i));
+        renderVariationsGrid();
+      }
+    } finally {
+      varGenBusy = false;
+      if(btn) btn.disabled = false;
+      renderVariationsGrid();
     }
-    renderVariationsGrid();
   }
 
   function renderVariationsGrid(){
@@ -4286,10 +4613,18 @@
       card.appendChild(addBtn);
       grid.appendChild(card);
     });
+    if(varGenBusy){
+      const ph = document.createElement('div');
+      ph.className = 'var-card';
+      ph.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:120px;font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);';
+      ph.textContent = `GENERATING… ${variationsCache.length}/6`;
+      grid.appendChild(ph);
+    }
   }
 
   $('regenVarBtn').addEventListener('click', regenerateVariations);
   $('addAllVarBtn').addEventListener('click', async ()=>{
+    if(varGenBusy){ toast('Still generating variations…'); return; }
     if(variationsCache.length===0) return;
     const added = [];
     for(const vc of variationsCache){
@@ -4376,12 +4711,21 @@
     const sx = Math.floor(imgX / item.scale);
     const sy = Math.floor(imgY / item.scale);
     if(sx < 0 || sy < 0 || sx >= item.obj.w || sy >= item.obj.h) return false;
-    if(!item.obj._alphaData){
+    if(item.obj._alphaData === undefined){
+      // Normalize to an obj.w × obj.h raster first: objects loaded from
+      // GitHub / dropped files can be <img> elements (no getContext) or
+      // canvases at a different resolution — the old code fell back to the
+      // whole bounding box for those, which is why clicks far outside the
+      // artwork still selected it.
       try {
-        const octx = item.obj.canvas.getContext('2d');
-        item.obj._alphaData = octx.getImageData(0, 0, item.obj.w, item.obj.h).data;
-      } catch(e){ return true; }
+        const t = document.createElement('canvas');
+        t.width = item.obj.w; t.height = item.obj.h;
+        const tc = t.getContext('2d', { willReadFrequently: true });
+        tc.drawImage(item.obj.canvas, 0, 0, item.obj.w, item.obj.h);
+        item.obj._alphaData = tc.getImageData(0, 0, item.obj.w, item.obj.h).data;
+      } catch(e){ item.obj._alphaData = null; }
     }
+    if(!item.obj._alphaData) return true; // truly unreadable → bbox fallback
     const idx = (sy * item.obj.w + sx) * 4 + 3;
     return item.obj._alphaData[idx] > 20;
   }
@@ -4442,6 +4786,52 @@
     renderComposition();
   });
 
+  // ==================== LIVE EDIT LINK (composition ↔ drawing) ====================
+  // Clicking a placed element opens its object on the DRAWING canvas and
+  // establishes a LIVE link: every change made in the drawing panel is
+  // cropped and pushed back into the object, so the composition (and the
+  // sample thumbnail) updates in real time. The link ends on RESET,
+  // REGISTER, or when another sample/element is opened.
+  function beginLiveEdit(obj){
+    if(!obj) return;
+    if(replaying){ toast('Replaying — please wait.'); return; }
+    if(liveEditTarget === obj) return; // already linked
+    // Fresh canvas for this element
+    actions.length = 0;
+    redoStack.length = 0;
+    selectedStrokeId = null;
+    layers = [createLayer()];
+    activeLayerId = layers[0].id;
+    renderAll();
+    loadSampleToDrawing(obj);
+    liveEditTarget = obj;
+    toast(`LIVE EDIT: OBJ-${String(obj.id).padStart(2,'0')} — drawing changes sync to the composition.`);
+    const drawSection = drawCanvas.closest('section') || drawCanvas.closest('.panel');
+    if(drawSection) drawSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function syncLiveEdit(includeGallery){
+    const obj = liveEditTarget;
+    if(!obj) return;
+    const bbox = getBBox(drawCanvas);
+    if(!bbox) return; // don't blank the object while the canvas is empty
+    const cropped = cropCanvas(drawCanvas, bbox);
+    obj.canvas = cropped;
+    obj.w = cropped.width;
+    obj.h = cropped.height;
+    obj._alphaData = undefined;      // hit-testing must resample
+    try { obj.recipe = buildRecipeForBBox(bbox); } catch(e){ /* keep old recipe */ }
+    renderComposition();
+    if(includeGallery) renderGallery();
+  }
+
+  // Throttled sync during live stroking (the committed sync runs on renderAll)
+  let liveSyncTimer = null;
+  function scheduleLiveSync(){
+    if(!liveEditTarget || liveSyncTimer) return;
+    liveSyncTimer = setTimeout(()=>{ liveSyncTimer = null; syncLiveEdit(false); }, 180);
+  }
+
   compCanvas.addEventListener('pointermove', e => {
     if (!isDraggingItem || selectedItemIdx === null) return;
     const rect = compCanvas.getBoundingClientRect();
@@ -4460,7 +4850,18 @@
     renderComposition();
   });
 
+  let compDownPos = null;
+  compCanvas.addEventListener('pointerdown', e => {
+    compDownPos = { x: e.clientX, y: e.clientY };
+  });
   compCanvas.addEventListener('pointerup', e => {
+    // A true CLICK (not a drag) on a selected element opens it in DRAWING
+    // with the live link. Drags keep working purely as move/arrange.
+    if(compDownPos && Math.hypot(e.clientX - compDownPos.x, e.clientY - compDownPos.y) < 5 &&
+       selectedItemIdx !== null && placedItems[selectedItemIdx]){
+      beginLiveEdit(placedItems[selectedItemIdx].obj);
+    }
+    compDownPos = null;
     if (isDraggingItem) {
       isDraggingItem = false;
       compCanvas.releasePointerCapture(e.pointerId);
@@ -4600,7 +5001,11 @@
   renderLayersPanel();
   updateNavPreview();
   const _origRenderAll = renderAll;
-  renderAll = function(){ _origRenderAll(); renderLayersPanel(); };
+  renderAll = function(){
+    _origRenderAll();
+    renderLayersPanel();
+    if(typeof syncLiveEdit === 'function') syncLiveEdit(true); // live link → composition
+  };
 })();
 </script>
 </body>
