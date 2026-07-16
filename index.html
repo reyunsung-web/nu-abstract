@@ -2300,7 +2300,18 @@ showLayerMenu(ev.clientX, ev.clientY, [
 
   // ==================== HOTKEYS ====================
   window.addEventListener('keydown', e => {
-    if(e.target.tagName === 'INPUT') return;
+    const tag = e.target.tagName;
+    const isTextField = (tag === 'INPUT' &&
+      !['range','checkbox','radio','button','color'].includes(e.target.type)) ||
+      tag === 'TEXTAREA' || e.target.isContentEditable;
+    if(isTextField) return;
+    // SPACE is the PAN key — it must never scroll the page. The old guard
+    // bailed out whenever ANY input had focus, so after touching a slider
+    // the spacebar scrolled the page instead of grabbing the canvas.
+    if(e.key === ' '){
+      e.preventDefault();
+      if(tag === 'INPUT' || tag === 'BUTTON' || tag === 'SELECT') e.target.blur();
+    }
     if(replaying) return; // no undo/tool changes mid-replay
     if(e.ctrlKey || e.metaKey) {
       if(e.key.toLowerCase() === 'z') {
@@ -2557,10 +2568,23 @@ showLayerMenu(ev.clientX, ev.clientY, [
     // Compact: round coordinates to 0.1px
     const slim = recipe.map(a=>{
       const li = a.li || 0;
+      // structural meta (layer names + folder grouping) must survive the
+      // save — it used to fall through to null and vanish from the PNG.
+      if(a.type==='meta'){
+        return { type:'meta', v: a.v || 1, layers: a.layers || [], folders: a.folders || [] };
+      }
       if(a.type==='stroke'){
         const o = { type:'stroke', tool:a.tool, color:a.color, width:a.width, li,
                     points:a.points.map(p=>({x:Math.round(p.x*10)/10, y:Math.round(p.y*10)/10})) };
-        if(a.texture && a.texture !== 'smooth'){ o.tx = a.texture; o.g = a.grain; o.sd = a.seed; }
+        // Recipes built by buildRecipeForBBox already use the compact keys
+        // (tx/g/sd) — checking only a.texture DROPPED the texture here, which
+        // is why spray strokes came back as smooth after a save+reload.
+        const tx = a.texture || a.tx;
+        if(tx && tx !== 'smooth'){
+          o.tx = tx;
+          o.g  = (a.grain != null ? a.grain : (a.g != null ? a.g : 50));
+          o.sd = (a.seed  != null ? a.seed  : (a.sd != null ? a.sd : 1));
+        }
         return o;
       }
       if(a.type==='fill'){
@@ -5553,7 +5577,8 @@ showLayerMenu(ev.clientX, ev.clientY, [
           // Recreate the ORIGINAL folder structure (names + membership).
           const fMap = new Map();
           meta.folders.forEach(mf => {
-            const nf = { id: ++folderIdCounter, name: mf.name || 'FOLDER' };
+            // collapsed on arrival — keeps the panel tidy with many layers
+            const nf = { id: ++folderIdCounter, name: mf.name || 'FOLDER', collapsed: true };
             folders.push(nf);
             fMap.set(mf.id, nf);
           });
@@ -5565,7 +5590,7 @@ showLayerMenu(ev.clientX, ev.clientY, [
           activeFolderId = null;
         } else {
           // Old recipes without meta: keep them tidy in one OBJ folder.
-          const grpF = { id: ++folderIdCounter, name: tag };
+          const grpF = { id: ++folderIdCounter, name: tag, collapsed: true };
           folders.push(grpF);
           fresh.forEach(l => { l.folderId = grpF.id; });
           activeFolderId = grpF.id;
