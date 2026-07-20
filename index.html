@@ -3026,8 +3026,7 @@ showLayerMenu(ev.clientX, ev.clientY, [
             return a;
           });
         }
-        const obj = addObject(finalC, recipe, file.name);
-        if(sourceUrl) obj.downloadUrl = sourceUrl; // online origin → right-click DOWNLOAD
+        addObject(finalC, recipe, file.name, sourceUrl || null); // online origin → right-click DOWNLOAD
         resolve(finalC);
       };
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image Load Failed: '+file.name)); };
@@ -5871,9 +5870,12 @@ showLayerMenu(ev.clientX, ev.clientY, [
     return result;
   }
 
-  function addObject(canvas, recipe, filename = null){
+  function addObject(canvas, recipe, filename = null, downloadUrl = null){
     objCounter++;
-    const obj = { id: objCounter, canvas, w: canvas.width, h: canvas.height, recipe: recipe || null, filename };
+    // downloadUrl must be part of the object BEFORE renderGallery below —
+    // attaching it after the call left the newest card without its
+    // right-click DOWNLOAD menu until the next re-render.
+    const obj = { id: objCounter, canvas, w: canvas.width, h: canvas.height, recipe: recipe || null, filename, downloadUrl };
     objects.push(obj);
     if(filename) loadedFilenames.add(filename);
     renderGallery();
